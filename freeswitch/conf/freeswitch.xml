@@ -1,0 +1,224 @@
+<?xml version="1.0"?>
+<document type="freeswitch/xml">
+  <X-PRE-PROCESS cmd="set" data="domain=freeswitch">
+  <X-PRE-PROCESS cmd="set" data="domain_name=freeswitch"/>
+  <X-PRE-PROCESS cmd="set" data="global_codec_prefs=PCMU,PCMA,GSM,speex@16000h@20i"/>
+  <X-PRE-PROCESS cmd="set" data="bind_server_ip=auto"/>
+  <X-PRE-PROCESS cmd="set" data="bong-ring=v=-7;%(100,0,941.0,1477.0);v=-7;>=2;+=.1;%(1400,0,350,440)"/>
+  <X-PRE-PROCESS cmd="set" data="sit=%(274,0,913.8);%(274,0,1370.6);%(380,0,1776.7)"/>
+  <X-PRE-PROCESS cmd="set" data="external_auth_calls=false"/>
+  <X-PRE-PROCESS cmd="set" data="external_sip_port=5060"/>
+  <X-PRE-PROCESS cmd="set" data="external_ssl_enable=false"/>
+
+  <section name="configuration" description="Various Configuration">
+    <configuration name="modules.conf" description="Modules">
+      <modules>
+        <load module="mod_console" critical="true"/>
+        <load module="mod_logfile" critical="true"/>
+        <load module="mod_event_socket" critical="true"/>
+        <load module="mod_sofia" critical="true"/>
+        <load module="mod_commands" critical="true"/>
+        <load module="mod_dptools" critical="true"/>
+        <load module="mod_dialplan_xml" critical="true"/>
+        <load module="mod_spandsp" critical="true"/>
+        <load module="mod_sndfile" critical="true"/>
+        <load module="mod_flite" critical="true"/>
+        <load module="mod_pocketsphinx" critical="true"/>
+        <load module="mod_unimrcp" critical="true"/>
+        <load module="mod_lua" critical="true"/>
+      </modules>
+    </configuration>
+    <configuration name="switch.conf" description="Core Configuration">
+      <settings>
+        <param name="colorize-console" value="true"/>
+        <param name="max-sessions" value="500"/>
+        <param name="sessions-per-second" value="30"/>
+        <!-- Default Global Log Level - value is one of debug,info,notice,warning,err,crit,alert -->
+        <param name="loglevel" value="debug"/>
+        <param name="dump-cores" value="yes"/>
+        <!--RTP port range -->
+        <param name="rtp-start-port" value="35000"/>
+        <param name="rtp-end-port" value="54999"/>
+      </settings>
+    </configuration>
+    <configuration name="console.conf" description="Console Logger">
+      <mappings>
+        <map name="all" value="console,debug,info,notice,warning,err,crit,alert"/>
+      </mappings>
+      <settings>
+        <param name="colorize" value="true"/>
+        <param name="loglevel" value="debug"/>
+      </settings>
+    </configuration>
+    <configuration name="logfile.conf" description="File Logging">
+      <settings>
+       <param name="rotate-on-hup" value="true"/>
+      </settings>
+      <profiles>
+        <profile name="default">
+          <settings>
+            <param name="rollover" value="10485760"/>
+          </settings>
+          <mappings>
+            <map name="all" value="debug,info,notice,warning,err,crit,alert"/>
+          </mappings>
+        </profile>
+      </profiles>
+    </configuration>
+    <configuration name="event_socket.conf" description="Socket Client">
+      <settings>
+        <param name="nat-map" value="false"/>
+        <param name="listen-ip" value="0.0.0.0"/>
+        <param name="listen-port" value="8021"/>
+        <param name="password" value="ClueCon"/>
+      </settings>
+    </configuration>
+    <configuration name="sofia.conf" description="sofia Endpoint">
+      <global_settings>
+        <param name="log-level" value="0"/>
+        <param name="debug-presence" value="0"/>
+      </global_settings>
+      <profiles>
+        <profile name="external">
+          <domains>
+            <domain name="all" alias="false" parse="true"/>
+          </domains>
+          <settings>
+            <param name="user-agent-string" value="basix_helper_fs"/>
+            <param name="debug" value="0"/>
+            <param name="sip-trace" value="no"/>
+            <param name="rfc2833-pt" value="101"/>
+            <param name="sip-port" value="5060"/>
+            <param name="dialplan" value="XML"/>
+            <param name="context" value="public"/>
+            <param name="dtmf-duration" value="2000"/>
+            <param name="outbound-codec-prefs" value="$${global_codec_prefs}"/>
+            <param name="inbound-codec-prefs" value="$${global_codec_prefs}"/>
+            <param name="rtp-timer-name" value="soft"/>
+            <param name="enable-compact-headers" value="false"/>
+            <param name="local-network-acl" value="localnet.auto"/>
+            <param name="manage-presence" value="false"/>
+            <param name="nonce-ttl" value="60"/>
+            <param name="auth-calls" value="false"/>
+            <param name="rtp-ip" value="freeswitch"/>
+            <param name="sip-ip" value="freeswitch"/>
+            <param name="ext-rtp-ip" value="auto-nat"/>
+            <param name="ext-sip-ip" value="auto-nat"/>
+            <param name="rtp-timeout-sec" value="300"/>
+            <param name="rtp-hold-timeout-sec" value="1800"/>
+            <param name="pass-callee-id" value="false"/>
+
+            <param name="disable-register" value="true"/>
+            <param name="disable-transfer" value="true"/>
+            <param name="disable-hold" value="true"/>
+            <param name="manage-presence" value="false"/>
+            <param name="auth-calls" value="false"/>
+            <param name="disable-transcoding" value="false"/>
+            <param name="inbound-late-negotiation" value="false"/>
+          </settings>
+        </profile>
+      </profiles>
+    </configuration>
+    <configuration name="event_socket.conf" description="Socket Client">
+      <settings>
+        <param name="nat-map" value="false"/>
+        <param name="listen-ip" value="freeswitch"/>
+        <param name="listen-port" value="8021"/>
+        <param name="password" value="ClueCon"/>
+	<param name="apply-inbound-acl" value="my_acl"/>
+        <param name="stop-on-bind-error" value="true"/>
+      </settings>
+    </configuration>
+    <configuration name="acl.conf" description="Network Lists">
+      <network-lists>
+        <list name="my_acl" default="allow">
+	  <node type="allow" cidr="xxx.xxx.xxx.xxx/32"/>
+	  <node type="allow" cidr="xxx.xxx.xxx.xxx/24"/>
+	  <node type="allow" cidr="0.0.0.0/32"/>
+	  <node type="allow" cidr="0.0.0.0/24"/>
+	  <node type="allow" cidr="0.0.0.0/24"/>
+	  <node type="allow" cidr="127.0.0.1/32"/>
+        </list>
+      </network-lists>
+    </configuration>
+
+    <configuration name="spandsp.conf" description="Just to avoid log warnings">
+    </configuration>
+
+    <configuration name="pocketsphinx.conf" description="PocketSphinx ASR Configuration">
+      <settings>
+        <param name="threshold" value="400"/>
+        <param name="silence-hits" value="25"/>
+        <param name="listen-hits" value="1"/>
+        <param name="auto-reload" value="true"/>
+        <!--<param name="language-weight" value="1"/>-->
+        <!--<param name="narrowband-model" value="communicator"/>-->
+        <!--<param name="wideband-model" value="wsj1"/>-->
+        <!--<param name="dictionary" value="default.dic"/>-->
+      </settings>
+    </configuration>
+
+    <configuration name="unimrcp.conf" description="UniMRCP Client">
+      <settings>
+        <!-- UniMRCP profile to use for TTS -->
+        <param name="default-tts-profile" value="mrcp_server"/>
+        <!-- UniMRCP profile to use for ASR -->
+        <param name="default-asr-profile" value="mrcp_server"/>
+        <!-- UniMRCP logging level to appear in freeswitch.log.  Options are:
+            EMERGENCY|ALERT|CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG -->
+        <param name="log-level" value="DEBUG"/>
+        <!-- Enable events for profile creation, open, and close -->
+        <param name="enable-profile-events" value="false"/>
+
+        <param name="max-connection-count" value="100"/>
+        <param name="offer-new-connection" value="1"/>
+        <param name="request-timeout" value="3000"/>
+      </settings>
+
+      <profiles>
+        <profile name="mrcp_server" version="2">
+          <param name="client-ip" value="auto"/>
+          <param name="client-port" value="16040"/>
+          <param name="server-ip" value="tester"/>
+          <param name="server-port" value="8070"/>
+          <param name="sip-transport" value="udp"/>
+          <param name="rtp-ip" value="auto"/>
+          <param name="rtp-port-min" value="8000"/>
+          <param name="rtp-port-max" value="9000"/>
+          <param name="rtcp" value="0"/>
+          <param name="rtcp-bye" value="2"/>
+          <param name="rtcp-tx-interval" value="5000"/>
+          <param name="rtcp-rx-resolution" value="1000"/>
+          <param name="codecs" value="PCMU PCMA L16/96/8000 telephone-event"/>
+        </profile>
+
+        <profile name="dev_mrcp_server" version="2">
+          <param name="client-ip" value="auto"/>
+          <param name="client-port" value="16050"/>
+          <param name="server-ip" value="tester"/>
+          <param name="server-port" value="8070"/>
+          <param name="sip-transport" value="udp"/>
+          <param name="rtp-ip" value="auto"/>
+          <param name="rtp-port-min" value="8000"/>
+          <param name="rtp-port-max" value="9000"/>
+          <param name="rtcp" value="0"/>
+          <param name="rtcp-bye" value="2"/>
+          <param name="rtcp-tx-interval" value="5000"/>
+          <param name="rtcp-rx-resolution" value="1000"/>
+          <param name="codecs" value="PCMU PCMA L16/96/8000 telephone-event"/>
+        </profile>
+      </profiles>
+    </configuration>
+  </section>
+
+  <section name="dialplan" description="Regex/XML Dialplan">
+    <context name='public'>
+      <extension name='test'>
+        <condition>
+          <action application='lua' data='/usr/local/freeswitch/scripts/test.lua'/>
+        </condition>
+      </extension>
+    </context>
+  </section>
+
+</document>

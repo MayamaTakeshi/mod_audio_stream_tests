@@ -1,0 +1,23 @@
+----------------------------------------
+2024/03/23 takeshi:
+
+Everything was working well with freeswitch service.
+Then suddenly I could not start freeswitch service anymore as I got:
+
+takeshi@takeshi-desktop:t1$ docker compose up freeswitch
+[+] Running 2/2
+ ✔ Network t1_default         Created                                                                                                                                             0.1s 
+ ✔ Container t1-freeswitch-1  Created                                                                                                                                             0.3s 
+Attaching to freeswitch-1
+freeswitch-1  | Environment variables 'SOUND_RATES' or 'SOUND_TYPES' not defined. Skiping sound files checking.
+freeswitch-1  | ERROR: Failed to set SCHED_FIFO scheduler (Operation not permitted)
+freeswitch-1  | ERROR: Could not set nice level
+
+and it would get stuck and freeswitch would not actually start.
+
+This was solved by adding this to docker-compose.yml:
+    cap_add:
+      - SYS_NICE
+----------------------------------------
+ 
+

@@ -1,0 +1,35 @@
+version: '3'
+
+services:
+  freeswitch:
+    build:
+      dockerfile: freeswitch/Dockerfile
+      args:
+        - USER_NAME=${USER_NAME}
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - GIT_USER_NAME=${GIT_USER_NAME}
+        - GIT_USER_EMAIL=${GIT_USER_EMAIL}
+    volumes:
+      - ./freeswitch/conf/freeswitch.xml:/usr/local/freeswitch/conf/freeswitch.xml
+      - ./freeswitch/scripts:/usr/local/freeswitch/scripts
+    cap_add:
+      - SYS_NICE
+    command: sudo -E /usr/local/freeswitch/bin/freeswitch -nc -nf -nonat
+
+  tester:
+    build:
+      dockerfile: tester/Dockerfile
+      args:
+        - USER_NAME=${USER_NAME}
+        - USER_UID=${USER_UID}
+        - USER_GID=${USER_GID}
+        - GIT_USER_NAME=${GIT_USER_NAME}
+        - GIT_USER_EMAIL=${GIT_USER_EMAIL}
+    volumes:
+      - ./tests:/home/${USER_NAME}/tests
+      - ./freeswitch/scripts:/usr/local/freeswitch/scripts
+      - ../:/home/${USER_NAME}/src/
+      - ./tester/mrcp_server_default.js:/home/${USER_NAME}/src/mrcp_server/config/default.js
+    command: tail -f /dev/null
+
