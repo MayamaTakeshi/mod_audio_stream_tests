@@ -165,4 +165,15 @@ Content-Length: 25
 
 {"type":"start_of_input"}
 
+----------------------------------------
+2024/03/25 takeshi:
+
+Using greenswitch I was trying to convert a mod_audio_stream event::json to a DETECTED_SPEECH event.
+I tried like this:
+  fs.send("sendevent DETECTED_SPEECH\nEvent-Name: DETECTED_SPEECH\nSpeech-Type: detected-speech\nunique-id: " + uid + "\nContent-Length: 4\n\nabc\n")
+I debugged freeswitch/mod_event_socket and the command sendevent is accepted but it is not fired. Instead it is passed to the session and it consummed by it.
+So because of this, we cannot use simple solutions like mod_lua (appliation="lua").
+Instead, we need to have an app that uses both inbound and outbound sockets to control the calls: when the mod_audio_stream event arrives, we should search for an existing outbound session and notify it about it.
+
+
 

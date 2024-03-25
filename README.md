@@ -24,7 +24,7 @@ Do this:
 ```
 cd src # go to a base folder somewhere
 git clone https://github.com/MayamaTakeshi/mod_audio_stream_tests
-git clone https://github.com/MayamaTakeshi/mrcp_server # used commit 6172df7b
+git clone https://github.com/MayamaTakeshi/mrcp_server # used commit 6172df7b 
 ```
 
 The important thing in the above is that mrcp_server folder is at the same place as mod_audio_stream_tests folder.
@@ -48,8 +48,14 @@ The above will create a tmux session with 3 windows:
   - mrcp_server
   - sngrep with mrcp support (sngrep2)
   - window opened in the tests/functional folder
-```
+
 In the tests/functional folder you can execute a test script like this:
 ```
-node smoke_test.js
+node speech_recog.js
 ```
+
+## Results
+
+There are no results yet.
+
+Research is ongoing.

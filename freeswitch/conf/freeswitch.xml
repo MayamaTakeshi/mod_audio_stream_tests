@@ -77,7 +77,7 @@
             <domain name="all" alias="false" parse="true"/>
           </domains>
           <settings>
-            <param name="user-agent-string" value="basix_helper_fs"/>
+            <param name="user-agent-string" value="tester"/>
             <param name="debug" value="0"/>
             <param name="sip-trace" value="no"/>
             <param name="rfc2833-pt" value="101"/>
