@@ -1,0 +1,11 @@
+name: dev
+root: ~/
+
+windows:
+  - tester:
+    - cd ~/src/mod_audio_stream_tests/tests/functional
+  - mrcp_server:
+    - cd ~/src/mrcp_server
+    - node index.js
+  - sngrep2:
+    - sudo sngrep2 -d any

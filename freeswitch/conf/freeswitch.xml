@@ -26,6 +26,7 @@
         <load module="mod_pocketsphinx" critical="true"/>
         <load module="mod_unimrcp" critical="true"/>
         <load module="mod_lua" critical="true"/>
+        <load module="mod_audio_stream" critical="true"/>
       </modules>
     </configuration>
     <configuration name="switch.conf" description="Core Configuration">
@@ -64,14 +65,6 @@
           </mappings>
         </profile>
       </profiles>
-    </configuration>
-    <configuration name="event_socket.conf" description="Socket Client">
-      <settings>
-        <param name="nat-map" value="false"/>
-        <param name="listen-ip" value="0.0.0.0"/>
-        <param name="listen-port" value="8021"/>
-        <param name="password" value="ClueCon"/>
-      </settings>
     </configuration>
     <configuration name="sofia.conf" description="sofia Endpoint">
       <global_settings>
@@ -125,19 +118,18 @@
         <param name="listen-ip" value="freeswitch"/>
         <param name="listen-port" value="8021"/>
         <param name="password" value="ClueCon"/>
-	<param name="apply-inbound-acl" value="my_acl"/>
+        <param name="apply-inbound-acl" value="my_acl"/>
         <param name="stop-on-bind-error" value="true"/>
       </settings>
     </configuration>
     <configuration name="acl.conf" description="Network Lists">
       <network-lists>
         <list name="my_acl" default="allow">
-	  <node type="allow" cidr="xxx.xxx.xxx.xxx/32"/>
-	  <node type="allow" cidr="xxx.xxx.xxx.xxx/24"/>
-	  <node type="allow" cidr="0.0.0.0/32"/>
-	  <node type="allow" cidr="0.0.0.0/24"/>
-	  <node type="allow" cidr="0.0.0.0/24"/>
-	  <node type="allow" cidr="127.0.0.1/32"/>
+          <node type="allow" cidr="xxx.xxx.xxx.xxx/32"/>
+          <node type="allow" cidr="xxx.xxx.xxx.xxx/24"/>
+          <node type="allow" cidr="0.0.0.0/32"/>
+          <node type="allow" cidr="0.0.0.0/24"/>
+	        <node type="allow" cidr="127.0.0.1/32"/>
         </list>
       </network-lists>
     </configuration>
@@ -215,7 +207,7 @@
     <context name='public'>
       <extension name='test'>
         <condition>
-          <action application='lua' data='/usr/local/freeswitch/scripts/test.lua'/>
+          <action application='lua' data='/tmp/scripts/test.lua'/>
         </condition>
       </extension>
     </context>

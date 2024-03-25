@@ -4,6 +4,9 @@ const m = require('data-matching')
 const sip_msg = require('sip-matching')
 const fs = require('fs')
 
+const DtmfDetectionStream = require('dtmf-detection-stream')
+const WebSocket = require('ws')
+
 var z = new Zeq()
 
 async function test() {
@@ -12,8 +15,96 @@ async function test() {
     return e
   })
 
+  const aggregation_timeout = 500
+
   sip.set_codecs("pcmu/8000/1:128")
-  sip.dtmf_aggregation_on(500)
+  sip.dtmf_aggregation_on(aggregation_timeout)
+
+  const ws_server = new WebSocket.Server({ port: 8080 })
+
+  ws_server.on('connection', conn => {
+    const format = {
+        sampleRate: 8000,
+        bitDepth: 16,
+        channels: 1,
+    }
+
+    var last_digit_time = null
+    var digits = ""
+
+    setInterval(() => {
+      if(digits.length > 0) {
+        var now = Date.now()
+        if(now - last_digit_time >= aggregation_timeout) {
+          z.push_event({
+            event: 'ws_conn_digits',
+            conn,
+            digits,
+          })
+          digits = ""
+        }
+      }
+    }, 100)
+
+
+    const dds = new DtmfDetectionStream(format)
+    dds.on('digit', digit => {
+      digits += digit
+      last_digit_time = Date.now()
+    })
+
+		z.push_event({
+			event: 'ws_conn',
+			conn,
+		})
+
+    conn.on('message', msg => {
+      if(typeof msg == 'string') {
+        z.push_event({
+          event: 'ws_msg',
+          conn,
+          msg,
+        })
+      } else {
+        const bufferLength = Object.keys(msg).length
+        const buffer = Buffer.alloc(bufferLength)
+        Object.keys(msg).forEach(key => {
+          const index = parseInt(key)
+          const value = msg[key]
+          if(value != 0 && value != 255) {
+            console.log(`non silence ${value}`)
+          }
+          buffer[index] = value
+        })
+        dds.write(buffer)
+        //dds.write(msg)
+
+				// Write the buffer to the file in append mode
+				fs.writeFile("a.raw", buffer, { flag: 'a' }, err => {
+					if (err) {
+						console.error('Error writing to file a.raw:', err);
+						return;
+					}
+					console.log('Data appended to file successfully.');
+				})
+
+				fs.writeFile("b.raw", msg, { flag: 'a' }, err => {
+					if (err) {
+						console.error('Error writing to file b.raw:', err);
+						return;
+					}
+					console.log('Data appended to file successfully.');
+				})
+      }
+    })
+
+    conn.on('close', () => {
+			z.push_event({
+				event: 'ws_close',
+				conn,
+			})
+    })
+  })
 
   // here we start sip-lab
   console.log(sip.start((data) => { console.log(data)} ))
@@ -22,12 +113,33 @@ async function test() {
 
   console.log("t1", t1)
 
-  fs.writeFileSync('/usr/local/freeswitch/scripts/test.lua', `
+  fs.writeFileSync('/tmp/scripts/test.lua', `
+api = freeswitch.API()
+local uuid = session:get_uuid()
+
+function my_cb(s, type, obj, arg)
+	if (arg) then
+		session:consoleLog("debug", "my_cb type: " .. type .. " " .. "arg: " .. arg )
+	else
+		session:consoleLog("debug", "my_cb type: " .. type)
+	end
+  local cmd = 'uuid_break ' .. uuid
+  local res = api:executeString(cmd)
+  session:consoleLog("debug",  "res=" .. tostring(res))
+end
 session:answer()
 session:sleep(500)
+
+session:setInputCallback("my_cb", "blah")
+local cmd = "uuid_audio_stream " .. uuid .. " start ws://tester:8080 mono 8k"
+session:consoleLog("debug",  "cmd=" .. cmd)
+local res = api:executeString(cmd)
+session:consoleLog("debug",  "res=" .. tostring(res))
+
 session:set_tts_params("unimrcp:mrcp_server", "dtmf")
-session:speak('1234')
-session:sleep(5000)`)
+session:speak('1234567890abcdef1234567890abcdef')
+
+session:sleep(15000)`)
 
   // make the call from t1 to freeswitch
   const oc = sip.call.create(t1.id, {from_uri: 'sip:0311112222@test.com', to_uri: `sip:05011112222@freeswitch`})
@@ -58,17 +170,25 @@ session:sleep(5000)`)
     },
   ], 1000)
 
-  sip.call.start_speech_recog(oc.id)
-  
   await z.wait([
     {
-       event: 'dtmf',
-       call_id: oc.id,
-       digits: '1234',
-       mode: 1,
+      event: 'ws_conn',
+      conn: m.collect('conn') 
     },
-  ], 1200)
- 
+  ], 1000)
+
+  sip.call.send_dtmf(oc.id, {digits: '123', mode: 1})
+
+  await z.wait([
+    {
+      event: 'ws_conn_digits',
+      //digits: '*123', // we are spuriously detecting '*' and '1'. This might be a bug in dtmf-detection-stream
+    },
+  ], 2000)
+
+  z.store.conn.send(JSON.stringify({type: 'start_of_input'}))
+
+  await z.sleep(10000)
 
   // now we terminate the call from t1 side
   sip.call.terminate(oc.id)

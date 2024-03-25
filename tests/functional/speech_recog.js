@@ -22,7 +22,7 @@ async function test() {
 
   console.log("t1", t1)
 
-  fs.writeFileSync('/usr/local/freeswitch/scripts/test.lua', `
+  fs.writeFileSync('/tmp/scripts/test.lua', `
 session:answer()
 session:sleep(500)
 session:set_tts_params("flite", "kal16")

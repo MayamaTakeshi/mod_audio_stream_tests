@@ -1,5 +1,12 @@
 FROM mayamatakeshi/freeswitch-dev:1.0.0
 
+RUN <<EOF
+echo "Creating lua esl module"
+cd /usr/local/src/git/freeswitch/libs/esl/
+make luamod
+cp lua/ESL.so /usr/local/lib/lua/5.2/ESL.so
+EOF
+
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN <<EOF
@@ -13,8 +20,6 @@ EOF
 ARG USER_NAME
 ARG USER_UID
 ARG USER_GID
-ARG GIT_USER_NAME
-ARG GIT_USER_EMAIL
 
 RUN <<EOF
 echo "Creating non-root user"
@@ -29,17 +34,6 @@ EOF
 
 USER $USER_NAME
 
-RUN <<EOF
-if [[ "$GIT_USER_NAME" != "" ]]
-then
-  git config --global user.name $GIT_USER_NAME
-fi
-if [[ "$GIT_USER_EMAIL" != "" ]]
-then
-  git config --global user.email $GIT_USER_EMAIL
-fi
-EOF
-
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
  
 RUN . ~/.nvm/nvm.sh && nvm install v21.7.0
@@ -52,4 +46,7 @@ mkdir -p ~/.vim/pack/local/start
 cd ~/.vim/pack/local/start
 git clone https://github.com/editorconfig/editorconfig-vim.git
 EOF
+
+RUN echo "export PROMPT_DIRTRIM=1" >>  ~/.bashrc
+
 

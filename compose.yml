@@ -8,11 +8,11 @@ services:
         - USER_NAME=${USER_NAME}
         - USER_UID=${USER_UID}
         - USER_GID=${USER_GID}
-        - GIT_USER_NAME=${GIT_USER_NAME}
-        - GIT_USER_EMAIL=${GIT_USER_EMAIL}
     volumes:
       - ./freeswitch/conf/freeswitch.xml:/usr/local/freeswitch/conf/freeswitch.xml
-      - ./freeswitch/scripts:/usr/local/freeswitch/scripts
+      - ./freeswitch/scripts:/home/${USER_NAME}/scripts
+      - ./scripts:/tmp/scripts
+      - ~/.gitconfig:/home/${USER_NAME}/.gitconfig
     cap_add:
       - SYS_NICE
     command: sudo -E /usr/local/freeswitch/bin/freeswitch -nc -nf -nonat
@@ -24,12 +24,11 @@ services:
         - USER_NAME=${USER_NAME}
         - USER_UID=${USER_UID}
         - USER_GID=${USER_GID}
-        - GIT_USER_NAME=${GIT_USER_NAME}
-        - GIT_USER_EMAIL=${GIT_USER_EMAIL}
     volumes:
-      - ./tests:/home/${USER_NAME}/tests
-      - ./freeswitch/scripts:/usr/local/freeswitch/scripts
       - ../:/home/${USER_NAME}/src/
+      - ./scripts:/tmp/scripts
+      - ./tmuxinator/dev.yml:/home/${USER_NAME}/.config/tmuxinator/dev.yml
       - ./tester/mrcp_server_default.js:/home/${USER_NAME}/src/mrcp_server/config/default.js
+      - ~/.gitconfig:/home/${USER_NAME}/.gitconfig
     command: tail -f /dev/null
 

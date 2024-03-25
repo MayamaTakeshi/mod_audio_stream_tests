@@ -27,8 +27,6 @@ EOF
 ARG USER_NAME
 ARG USER_UID
 ARG USER_GID
-ARG GIT_USER_NAME
-ARG GIT_USER_EMAIL
 
 RUN <<EOF
 echo "Creating non-root user"
@@ -43,17 +41,6 @@ EOF
 
 USER $USER_NAME
 
-RUN <<EOF
-if [[ "$GIT_USER_NAME" != "" ]]
-then
-  git config --global user.name $GIT_USER_NAME
-fi
-if [[ "$GIT_USER_EMAIL" != "" ]]
-then
-  git config --global user.email $GIT_USER_EMAIL
-fi
-EOF
-
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
  
 RUN . ~/.nvm/nvm.sh && nvm install v21.7.0
@@ -67,17 +54,18 @@ cd ~/.vim/pack/local/start
 git clone https://github.com/editorconfig/editorconfig-vim.git
 EOF
 
-RUN <<EOF
-cat > ~/.config/tmuxinator/dev.yml <<EOF
-name: dev
-root: ~/
+RUN echo "export PROMPT_DIRTRIM=1" >>  ~/.bashrc
 
-windows:
-  - mrcp_server:
-    - cd ~/src/mrcp_server
-    - node index.js
-  - tester:
-    - cd ~/tests/functional
-  - sngrep2:
-    - sudo sngrep2 -d any
+RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.0
+
+RUN echo -e '\n. $HOME/.asdf/asdf.sh' >> ~/.bashrc \
+&& echo -e '\n. $HOME/.asdf/completions/asdf.bash' >> ~/.bashrc 
+
+
+RUN <<EOF
+source ~/.asdf/asdf.sh
+asdf plugin add golang
+asdf install golang 1.22.1
+asdf global golang 1.22.1
 EOF
+
