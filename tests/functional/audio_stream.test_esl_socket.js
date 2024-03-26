@@ -127,6 +127,15 @@ async function test() {
         $rr: 'Trying',
       }),
     },
+   {
+      event: 'response',
+      call_id: oc.id,
+      method: 'INVITE',
+      msg: sip_msg({
+        $rs: '183',
+        $rr: 'Session Progress',
+      }),
+    },
     {
       event: 'response',
       call_id: oc.id,
@@ -135,6 +144,11 @@ async function test() {
         $rs: '200',
         $rr: 'OK',
       }),
+    },
+    {
+      event: 'media_update',
+      call_id: oc.id,
+      status: 'ok',
     },
     {
       event: 'media_update',
@@ -163,7 +177,7 @@ async function test() {
   await z.wait([
     {
       event: 'ws_conn_digits',
-      digits: '1234567890',
+      digits: '*1234567890', // we get '*' in the beginning. This might be a bug in dtmf-detection-stream
     },
   ], 5000)
 

@@ -26,6 +26,7 @@
         <load module="mod_pocketsphinx" critical="true"/>
         <load module="mod_unimrcp" critical="true"/>
         <load module="mod_lua" critical="true"/>
+        <load module="mod_tone_stream" critical="true"/>
         <load module="mod_audio_stream" critical="true"/>
       </modules>
     </configuration>

@@ -31,14 +31,14 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-    fmt.Println("\nNew event")
+    fmt.Println("\nInboundChannel New event:")
 		PrettyPrint(ev)
 
     uuid := ev.Get("Unique-Id")
     if uuid == "" {
       log.Fatal("could not get uuid of custom event")
     }
-    if conn, ok := connectionMap.Get(uuid); ok{ 
+    if conn, ok := connectionMap.Get(uuid); ok{
       conn.InjectEvent(ev)
     } else {
       log.Fatal("connection not found")
@@ -104,8 +104,8 @@ func handler(c *eventsocket.Connection, connectionMap *ConnectionMap) {
   fmt.Printf("\nmsg=%s reply:\n", cmd)
 	PrettyPrint(ev)
 
-  app_name := "sleep"
-  app_data := "10000"
+  app_name := "playback"
+  app_data := "silence_stream://-1"
 
   fmt.Printf("\nexecute app_name=%s\n", app_name)
 	ev, err = c.Execute(app_name, app_data, false)
@@ -120,7 +120,7 @@ func handler(c *eventsocket.Connection, connectionMap *ConnectionMap) {
 		if err != nil {
 			log.Fatal(err)
 		}
-    fmt.Println("\n\nNew event:")
+    fmt.Println("\n\nOutboundChannel New event:")
 		PrettyPrint(ev)
 	}
 }
