@@ -510,3 +510,25 @@ func (h *Connection) InjectEvent(event *Event) {
 	h.evt <- event
 }
 
+
+func (r *Event) PrintKey(key string) {
+  if val := r.Get(key); val != "" {
+    fmt.Printf("%s: %s\n", key, val)
+  }
+}
+
+func (r *Event) PrettyPrint2() {
+	strings := []string{"Event-Name", "Application", "Application-Data", "Application-Response", "Content-Type", "Unique-Id"}
+
+	currentTime := time.Now()
+
+	fmt.Println(currentTime.Format("2006-01-02 15:04:05:"))
+
+	for _, value := range strings {
+    r.PrintKey(value)
+	}
+
+	if r.Body != "" {
+		fmt.Printf("BODY: %#v\n", r.Body)
+	}
+}
