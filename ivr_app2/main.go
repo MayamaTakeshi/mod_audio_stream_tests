@@ -38,11 +38,13 @@ func main() {
     if uuid == "" {
       log.Fatal("could not get uuid of custom event")
     }
-    if conn, ok := connectionMap.Get(uuid); ok{
-      conn.InjectEvent(ev)
-    } else {
+
+    conn, ok := connectionMap.Get(uuid)
+    if !ok {
       log.Fatal("connection not found")
     }
+
+    conn.InjectEvent(ev)
 	}
 	c.Close()
 }
@@ -59,22 +61,12 @@ func handler(c *eventsocket.Connection, connectionMap *ConnectionMap) {
   fmt.Printf("\ncmd=%s reply:\n", cmd)
 	PrettyPrint(ev)
 
-  uuid := ""
-
-  value, ok := ev.Header["Unique-Id"]
-	if ok {
-    if strVal, ok := value.(string); ok {
-        // Type assertion succeeded, assign the value to uuid
-        uuid = strVal
-    } else {
-        // Value is not a string, handle the error
-        log.Fatal("Value for key Unique-Id is not a string")
-    }
-	} else {
-		// Key does not exist in the event's header
-		log.Fatal("Key Unique-Id does not exist in the event's header")
-	}
+  uuid := ev.Get("Unique-Id")
+  if uuid == "" {
+    log.Fatal("could not get uuid of custom event")
+  }
 	fmt.Printf("\nuuid: %s\n", uuid)
+
   connectionMap.Add(uuid, c)
 
   cmd = "myevents"
@@ -126,11 +118,8 @@ func handler(c *eventsocket.Connection, connectionMap *ConnectionMap) {
 }
 
 func PrintKey(ev *eventsocket.Event, key string) {
-  value, ok := ev.Header[key]
-	if ok {
-    if strVal, ok := value.(string); ok {
-      fmt.Printf("%s: %s\n", key, strVal)
-    }
+  if val := ev.Get(key); val != "" {
+    fmt.Printf("%s: %s\n", key, val)
   }
 }
 
