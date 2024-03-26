@@ -30,7 +30,7 @@ session:speak("How can I be of help?")
 session:sleep(5000)`)
 
   // make the call from t1 to freeswitch
-  const oc = sip.call.create(t1.id, {from_uri: 'sip:0311112222@test.com', to_uri: `sip:05011112222@freeswitch`})
+  const oc = sip.call.create(t1.id, {from_uri: 'sip:0311112222@test.com', to_uri: `sip:test_mod_lua@freeswitch`})
 
   await z.wait([
     {

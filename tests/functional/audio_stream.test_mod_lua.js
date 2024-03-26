@@ -3,6 +3,7 @@ const Zeq = require('@mayama/zeq')
 const m = require('data-matching')
 const sip_msg = require('sip-matching')
 const fs = require('fs')
+const assert = require('assert')
 
 const DtmfDetectionStream = require('dtmf-detection-stream')
 const WebSocket = require('ws')
@@ -21,6 +22,8 @@ async function test() {
   sip.dtmf_aggregation_on(aggregation_timeout)
 
   const ws_server = new WebSocket.Server({ port: 8080 })
+
+  var ws_binary_msg_count = 0
 
   ws_server.on('connection', conn => {
     const format = {
@@ -66,6 +69,7 @@ async function test() {
           msg,
         })
       } else {
+        ws_binary_msg_count++
         const bufferLength = Object.keys(msg).length
         const buffer = Buffer.alloc(bufferLength)
         Object.keys(msg).forEach(key => {
@@ -130,7 +134,7 @@ end
 session:answer()
 session:sleep(500)
 
-session:setInputCallback("my_cb", "blah")
+session:setInputCallback("my_cb", "blah") -- we were hobing we could get mod_audio_stream::json with this but it doesn't work.
 local cmd = "uuid_audio_stream " .. uuid .. " start ws://tester:8080 mono 8k"
 session:consoleLog("debug",  "cmd=" .. cmd)
 local res = api:executeString(cmd)
@@ -142,7 +146,7 @@ session:speak('1234567890abcdef1234567890abcdef')
 session:sleep(15000)`)
 
   // make the call from t1 to freeswitch
-  const oc = sip.call.create(t1.id, {from_uri: 'sip:0311112222@test.com', to_uri: `sip:05011112222@freeswitch`})
+  const oc = sip.call.create(t1.id, {from_uri: 'sip:0311112222@test.com', to_uri: `sip:test_mod_lua@freeswitch`})
 
   await z.wait([
     {
@@ -182,13 +186,11 @@ session:sleep(15000)`)
   await z.wait([
     {
       event: 'ws_conn_digits',
-      //digits: '*123', // we are spuriously detecting '*' and '1'. This might be a bug in dtmf-detection-stream
+      //digits: '*1', // we are spuriously detecting '*' and '1'. This might be a bug in dtmf-detection-stream
     },
   ], 2000)
 
-  z.store.conn.send(JSON.stringify({type: 'start_of_input'}))
-
-  await z.sleep(10000)
+  //z.store.conn.send(JSON.stringify({type: 'start_of_input'})) // this doesn't reach the lua script as it cannot readily get this event (it might be doable but I don't know how yet)
 
   // now we terminate the call from t1 side
   sip.call.terminate(oc.id)
@@ -208,7 +210,12 @@ session:sleep(15000)`)
       event: 'call_ended',
       call_id: oc.id,
     },
+    {
+      event: 'ws_close',
+    },
   ], 1000)
+
+  assert(ws_binary_msg_count > 0)
 
   console.log("Success")
 
