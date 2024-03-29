@@ -15,7 +15,6 @@
 // WORK IN PROGRESS, USE AT YOUR OWN RISK.
 package eventsocket
 
-
 import (
 	"bufio"
 	"bytes"
@@ -87,7 +86,6 @@ type HandleFunc func(*Connection)
 //			...
 //		}
 //	}
-//
 func ListenAndServe(addr string, fn HandleFunc) error {
 	srv, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -115,7 +113,6 @@ func ListenAndServe(addr string, fn HandleFunc) error {
 //		ev.PrettyPrint()
 //		...
 //	}
-//
 func Dial(addr, passwd string) (*Connection, error) {
 	c, err := net.Dial("tcp", addr)
 	if err != nil {
@@ -178,7 +175,7 @@ func (h *Connection) readOne() bool {
 	switch hdr.Get("Content-Type") {
 	case "command/reply":
 		reply := hdr.Get("Reply-Text")
-		if len(reply)>1 && reply[:2] == "-E" {
+		if len(reply) > 1 && reply[:2] == "-E" {
 			h.err <- errors.New(reply[5:])
 			return true
 		}
@@ -189,7 +186,7 @@ func (h *Connection) readOne() bool {
 		}
 		h.cmd <- resp
 	case "api/response":
-		if len(resp.Body)>1 && string(resp.Body[:2]) == "-E" {
+		if len(resp.Body) > 1 && string(resp.Body[:2]) == "-E" {
 			h.err <- errors.New(string(resp.Body)[5:])
 			return true
 		}
@@ -443,7 +440,7 @@ func (h *Connection) Execute(appName, appArg string, lock bool) (*Event, error) 
 // ExecuteUUID is similar to Execute, but takes a UUID and no lock. Suitable
 // for use on inbound event socket connections (acting as client).
 func (h *Connection) ExecuteUUID(uuid, appName, appArg string) (*Event, error) {
-  fmt.Printf("uuid=%s, appName=%s, appArg=%s\n", uuid, appName, appArg)
+	fmt.Printf("uuid=%s, appName=%s, appArg=%s\n", uuid, appName, appArg)
 	return h.SendMsg(MSG{
 		"call-command":     "execute",
 		"execute-app-name": appName,
@@ -503,7 +500,7 @@ func (r *Event) PrettyPrint() {
 	if r.Body != "" {
 		fmt.Printf("BODY: %#v\n", r.Body)
 	}
-  fmt.Printf("\n")
+	fmt.Printf("\n")
 }
 
 // InjectEvent injects an event into the Connection for reading.
@@ -511,22 +508,21 @@ func (h *Connection) InjectEvent(event *Event) {
 	h.evt <- event
 }
 
-
 func (r *Event) PrintKey(key string) {
-  if val := r.Get(key); val != "" {
-    fmt.Printf("%s: %s\n", key, val)
-  }
+	if val := r.Get(key); val != "" {
+		fmt.Printf("%s: %s\n", key, val)
+	}
 }
 
 func (r *Event) PrettyPrint2() {
 	strings := []string{"Event-Name", "Application", "Application-Data", "Application-Response", "Content-Type", "Unique-Id"}
 
 	for _, value := range strings {
-    r.PrintKey(value)
+		r.PrintKey(value)
 	}
 
 	if r.Body != "" {
 		fmt.Printf("BODY: %#v\n", r.Body)
 	}
-  fmt.Printf("\n")
+	fmt.Printf("\n")
 }

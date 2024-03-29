@@ -2,7 +2,7 @@ package main
 
 import (
 	"ivr/eventsocket"
-  "reflect"
+	"reflect"
 )
 
 // RemoveMatchingEvent removes the matching event from the list if all headers and body match.
