@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	//"github.com/fiorix/go-eventsocket/eventsocket"
@@ -22,7 +21,7 @@ func main() {
   connectionMap := NewConnectionMap()
 
 	go eventsocket.ListenAndServe(":9090", func(c *eventsocket.Connection) {
-   handler(c, connectionMap) 
+   handler(c, connectionMap)
   })
 
 	for {
@@ -30,7 +29,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-    fmt.Println("\nInboundChannel New event:")
+    log.Printf("InboundChannel New event:")
 		ev.PrettyPrint2()
 
     uuid := ev.Get("Unique-Id")
@@ -49,70 +48,83 @@ func main() {
 }
 
 func handler(c *eventsocket.Connection, connectionMap *ConnectionMap) {
-	fmt.Println("handler new client:", c.RemoteAddr())
+	log.Printf("handler new client:", c.RemoteAddr())
 
   cmd := "connect"
-  fmt.Printf("\nSending cmd=%s\n", cmd)
+  log.Printf("Sending cmd=%s\n", cmd)
   ev, err := c.Send(cmd)
 	if err != nil {
 		log.Fatal(err)
 	}
-  fmt.Printf("\ncmd=%s reply:\n", cmd)
+  log.Printf("cmd=%s reply:\n", cmd)
 	ev.PrettyPrint()
 
   uuid := ev.Get("Unique-Id")
   if uuid == "" {
     log.Fatal("could not get uuid of custom event")
   }
-	fmt.Printf("\nuuid: %s\n", uuid)
-
+	log.Printf("Adding uuid: %s to connectionMap\n\n", uuid)
   connectionMap.Add(uuid, c)
+  defer (func () {
+    log.Printf("Removing uuid: %s from connectionMap\n\n", uuid)
+    connectionMap.Remove(uuid)
+  })()
 
   cmd = "myevents"
-  fmt.Printf("\nSending cmd=%s\n", cmd)
+  log.Printf("Sending cmd=%s\n", cmd)
   ev, err = c.Send(cmd)
 	if err != nil {
 		log.Fatal(err)
 	}
-  fmt.Printf("\ncmd=%s reply:\n", cmd)
+  log.Printf("cmd=%s reply:\n", cmd)
+	ev.PrettyPrint()
+
+  cmd = "divert_events on"
+  log.Printf("Sending cmd=%s\n", cmd)
+  ev, err = c.Send(cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+  log.Printf("cmd=%s reply:\n", cmd)
 	ev.PrettyPrint()
 
   app_name := "answer"
   app_data := ""
-  fmt.Printf("\nSending Execute app=%s\n", app_name)
+  log.Printf("Sending Execute app=%s\n", app_name)
   ev, err = c.Execute(app_name, app_data, false)
 	if err != nil {
 		log.Fatal(err)
 	}
-  fmt.Printf("\nExecute app=%s reply:\n", app_name)
+  log.Printf("Execute app=%s reply:\n", app_name)
 	ev.PrettyPrint()
 
   msg := "api uuid_audio_stream " + uuid + " start ws://tester:8080 mono 8k"
-  fmt.Printf("\nSending msg=%s\n", msg)
+  log.Printf("Sending msg=%s\n", msg)
   ev, err = c.Send(msg)
 	if err != nil {
 		log.Fatal(err)
 	}
-  fmt.Printf("\nSending msg=%s reply:\n", msg)
+  log.Printf("Sending msg=%s reply:\n", msg)
 	ev.PrettyPrint()
 
   app_name = "playback"
   app_data = "silence_stream://-1"
 
-  fmt.Printf("\nSending Execute app=%s\n", app_name)
+  log.Printf("Sending Execute app=%s\n", app_name)
 	ev, err = c.Execute(app_name, app_data, false)
 	if err != nil {
 		log.Fatal(err)
 	}
-  fmt.Printf("\nExecute app=%s reply:\n", app_name)
+  log.Printf("Execute app=%s reply:\n", app_name)
 	ev.PrettyPrint()
 
 	for {
 		ev, err = c.ReadEvent()
 		if err != nil {
-			log.Fatal(err)
+			log.Println("Terminating", err)
+      break
 		}
-    fmt.Println("\n\nOutboundChannel New event:")
+    log.Printf("OutboundChannel New event:")
 		ev.PrettyPrint2()
 	}
 }

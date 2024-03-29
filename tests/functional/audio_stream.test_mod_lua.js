@@ -134,7 +134,7 @@ end
 session:answer()
 session:sleep(500)
 
-session:setInputCallback("my_cb", "blah") -- we were hobing we could get mod_audio_stream::json with this but it doesn't work.
+session:setInputCallback("my_cb", "blah") -- we were hoping we could get custom event mod_audio_stream::json with this but it doesn't work.
 local cmd = "uuid_audio_stream " .. uuid .. " start ws://tester:8080 mono 8k"
 session:consoleLog("debug",  "cmd=" .. cmd)
 local res = api:executeString(cmd)

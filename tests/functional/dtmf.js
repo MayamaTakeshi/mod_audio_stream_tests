@@ -26,7 +26,7 @@ async function test() {
 session:answer()
 session:sleep(500)
 session:set_tts_params("unimrcp:mrcp_server", "dtmf")
-session:speak('1234')
+session:speak('{custom-param1=abc,custom-param2=def}1234')
 session:sleep(5000)`)
 
   // make the call from t1 to freeswitch

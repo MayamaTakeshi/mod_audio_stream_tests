@@ -503,6 +503,7 @@ func (r *Event) PrettyPrint() {
 	if r.Body != "" {
 		fmt.Printf("BODY: %#v\n", r.Body)
 	}
+  fmt.Printf("\n")
 }
 
 // InjectEvent injects an event into the Connection for reading.
@@ -520,10 +521,6 @@ func (r *Event) PrintKey(key string) {
 func (r *Event) PrettyPrint2() {
 	strings := []string{"Event-Name", "Application", "Application-Data", "Application-Response", "Content-Type", "Unique-Id"}
 
-	currentTime := time.Now()
-
-	fmt.Println(currentTime.Format("2006-01-02 15:04:05:"))
-
 	for _, value := range strings {
     r.PrintKey(value)
 	}
@@ -531,4 +528,5 @@ func (r *Event) PrettyPrint2() {
 	if r.Body != "" {
 		fmt.Printf("BODY: %#v\n", r.Body)
 	}
+  fmt.Printf("\n")
 }
