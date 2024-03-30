@@ -515,7 +515,7 @@ func (r *Event) PrintKey(key string) {
 }
 
 func (r *Event) PrettyPrint2() {
-	strings := []string{"Event-Name", "Application", "Application-Data", "Application-Response", "Content-Type", "Unique-Id"}
+	strings := []string{"Event-Name", "Event-Subclass", "Reply-Text", "Application", "Application-Data", "Application-Response", "Content-Type", "Unique-Id"}
 
 	for _, value := range strings {
 		r.PrintKey(value)

@@ -2,129 +2,209 @@ package main
 
 import (
 	"log"
+  "strings"
+  "fmt"
+  "os"
+
+  "encoding/json"
 
 	//"github.com/fiorix/go-eventsocket/eventsocket"
 	"ivr/eventsocket"
 )
 
+func parseJSON(jsonData string) (map[string]interface{}, error) {
+    var data map[string]interface{}
+    if err := json.Unmarshal([]byte(jsonData), &data); err != nil {
+        return nil, err
+    }
+    return data, nil
+}
+
+func _log(id string, format string, args ...interface{}) {
+  message := fmt.Sprintf(format, args...)
+  log.Printf("%s: %s", id, message)
+}
+
+
+func sendCmdAndWaitOk(id string, conn *eventsocket.Connection, cmd string) (*eventsocket.Event, error) {
+  _log(id, "Sending cmd=%s\n", cmd)
+  ev, err := conn.Send(cmd)
+  return waitOk(id, conn, cmd, ev, err)
+}
+
+func sendExecuteAndWaitOk(id string, conn *eventsocket.Connection, app_name string, app_data string, lock bool) (*eventsocket.Event, error) {
+	_log(id, "Sending Execute app_name=%s app_data=%s\n", app_name, app_data)
+  ev, err := conn.Execute(app_name, app_data, lock)
+  return waitOk(id, conn, app_name, ev, err)
+}
+
+func waitOk(id string, conn *eventsocket.Connection, cmd string, ev *eventsocket.Event, err error) (*eventsocket.Event, error) {
+  for {
+    if err != nil {
+      _log(id, "err=%v\n", err)
+      return nil, err
+    }
+
+    ct := ev.Get("Content-Type")
+    if ct == "command/reply" || ct == "api/response" {
+      _log(id, "cmd=%s reply:\n", cmd)
+      ev.PrettyPrint()
+      reply := ev.Get("Reply-Text")
+      if reply == "" {
+        reply = ev.Body
+      }
+      if strings.HasPrefix(reply, "+OK") {
+        return ev, nil
+      } else {
+        return nil, fmt.Errorf(reply)
+      }
+    }
+		ev, err = conn.ReadEvent()
+  }
+}
+
 func main() {
-	c, err := eventsocket.Dial("freeswitch:8021", "ClueCon")
+  id := "inbound_socket"
+
+	conn, err := eventsocket.Dial("freeswitch:8021", "ClueCon")
+
 	if err != nil {
-		log.Fatal(err)
+		_log(id, "Dial err=%v\n", err)
+    os.Exit(1)
 	}
-	ev, err := c.Send("events plain CUSTOM mod_audio_stream::json")
-	if err != nil {
-		log.Fatal(err)
+
+  cmd := "events plain CUSTOM mod_audio_stream::json"
+	_, err = sendCmdAndWaitOk(id, conn, cmd)
+  if err != nil {
+    _log(id, "%s err=%v\n", err)
+    os.Exit(1)
 	}
-	ev.PrettyPrint2()
 
 	connectionMap := NewConnectionMap()
 
-	go eventsocket.ListenAndServe(":9090", func(c *eventsocket.Connection) {
-		handler(c, connectionMap)
+	go eventsocket.ListenAndServe(":9090", func(new_conn *eventsocket.Connection) {
+		handler(new_conn, connectionMap)
 	})
 
 	for {
-		ev, err := c.ReadEvent()
+		ev, err := conn.ReadEvent()
 		if err != nil {
-			log.Fatal(err)
+			_log(id, "ReadEvent err=%v\n", err)
+      os.Exit(1)
 		}
-		log.Printf("InboundChannel New event:")
+		_log(id, "InboundChannel New event:")
 		ev.PrettyPrint2()
 
 		uuid := ev.Get("Unique-Id")
 		if uuid == "" {
-			log.Fatal("could not get uuid of custom event")
+			_log(id, "could not get uuid of custom event\n")
+      continue
 		}
 
-		conn, ok := connectionMap.Get(uuid)
+		outbound_socket_conn, ok := connectionMap.Get(uuid)
 		if !ok {
-			log.Fatal("connection not found")
+			_log(id, "connection not found for %s\n", uuid)
+      continue
 		}
 
-		conn.InjectEvent(ev)
+		outbound_socket_conn.InjectEvent(ev)
 	}
-	c.Close()
+	conn.Close()
 }
 
-func handler(c *eventsocket.Connection, connectionMap *ConnectionMap) {
-	log.Printf("handler new client:", c.RemoteAddr())
+func handler(conn *eventsocket.Connection, connectionMap *ConnectionMap) {
+  id := "outbound_socket_client:" + conn.RemoteAddr().String()
+	_log(id, "start")
 
-	cmd := "connect"
-	log.Printf("Sending cmd=%s\n", cmd)
-	ev, err := c.Send(cmd)
+	ev, err := conn.Send("connect")
 	if err != nil {
-		log.Fatal(err)
+		_log(id, "connect err=%v\n", err)
+    return
 	}
-	log.Printf("cmd=%s reply:\n", cmd)
+	log.Printf("connect reply:\n")
 	ev.PrettyPrint()
 
 	uuid := ev.Get("Unique-Id")
 	if uuid == "" {
-		log.Fatal("could not get uuid of custom event")
+		_log(id, "could not get uuid of custom event\n")
 	}
-	log.Printf("Adding uuid: %s to connectionMap\n\n", uuid)
-	connectionMap.Add(uuid, c)
+
+  _log(id, "got uuid=%s\n", uuid)
+  id = uuid
+	_log(id, "Adding uuid to connectionMap\n\n")
+	connectionMap.Add(uuid, conn)
 	defer (func() {
-		log.Printf("Removing uuid: %s from connectionMap\n\n", uuid)
+		_log(id, "Removing uuid: %s from connectionMap\n\n")
 		connectionMap.Remove(uuid)
 	})()
 
-	cmd = "myevents"
-	log.Printf("Sending cmd=%s\n", cmd)
-	ev, err = c.Send(cmd)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("cmd=%s reply:\n", cmd)
-	ev.PrettyPrint()
+  cmd := "myevents"
+	ev, err = sendCmdAndWaitOk(id, conn, cmd)
+  if err != nil { return }
 
 	cmd = "divert_events on"
-	log.Printf("Sending cmd=%s\n", cmd)
-	ev, err = c.Send(cmd)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("cmd=%s reply:\n", cmd)
-	ev.PrettyPrint()
+	ev, err = sendCmdAndWaitOk(id, conn, cmd)
+  if err != nil { return }
 
 	app_name := "answer"
 	app_data := ""
-	log.Printf("Sending Execute app=%s\n", app_name)
-	ev, err = c.Execute(app_name, app_data, false)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Execute app=%s reply:\n", app_name)
-	ev.PrettyPrint()
+	ev, err = sendExecuteAndWaitOk(id, conn, app_name, app_data, false)
+  if err != nil { return }
 
-	msg := "api uuid_audio_stream " + uuid + " start ws://tester:8080 mono 8k"
-	log.Printf("Sending msg=%s\n", msg)
-	ev, err = c.Send(msg)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Sending msg=%s reply:\n", msg)
-	ev.PrettyPrint()
+	cmd = "api uuid_audio_stream " + uuid + " start ws://tester:8080 mono 8k"
+	ev, err = sendCmdAndWaitOk(id, conn, cmd)
+  if err != nil { return }
 
+  /*
 	app_name = "playback"
 	app_data = "silence_stream://-1"
-
-	log.Printf("Sending Execute app=%s\n", app_name)
-	ev, err = c.Execute(app_name, app_data, false)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Execute app=%s reply:\n", app_name)
-	ev.PrettyPrint()
+	ev, err = sendExecuteAndWaitOk(id, conn, app_name, app_data, false)
+  if err != nil { return }
+  */
 
 	for {
-		ev, err = c.ReadEvent()
+		ev, err = conn.ReadEvent()
 		if err != nil {
-			log.Println("Terminating", err)
+			_log(id, "Terminating", err)
 			break
 		}
-		log.Printf("OutboundChannel New event:")
+		_log(id, "OutboundChannel New event:")
 		ev.PrettyPrint2()
+    if(ev.Get("Event-Name") == "CUSTOM" && ev.Get("Event-Subclass") == "mod_audio_stream::json") {
+      err = handle_mod_audio_stream_json_cmd(id, conn, ev)
+      if err != nil { return }
+    }
 	}
+}
+
+func handle_mod_audio_stream_json_cmd(id string, conn *eventsocket.Connection, ev *eventsocket.Event) (error) {
+  data, err := parseJSON(ev.Body)
+  if err != nil {
+      _log(id, "Error parsing JSON: %v\n", err)
+      return err
+  }
+  switch(data["cmd"]) {
+    case "execute-app":
+      app_name, ok := data["app_name"].(string)
+      if !ok {
+        return fmt.Errorf("cmd execute-app app-name is not a string or not found")
+      }
+      app_data, ok := data["app_data"].(string)
+      if !ok {
+        app_data = ""
+      }
+      ev, err = sendExecuteAndWaitOk(id, conn, app_name, app_data, false)
+      if err != nil {
+        return err
+      }
+      if(app_name == "bridge") {
+        // this is not an actual error. It is just to finish the ivr processing as the call was transfered
+        return fmt.Errorf("EOF_DUE_TRANSFER")
+      }
+    case "stop-speech-synth":
+      cmd := "api uuid_break " + id + " all"
+      ev, err = sendCmdAndWaitOk(id, conn, cmd)
+      if err != nil { return err }
+  }
+  return nil
 }
