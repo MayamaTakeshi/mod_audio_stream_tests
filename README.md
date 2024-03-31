@@ -56,6 +56,23 @@ In the tests/functional folder you can run test scripts this way:
 
 ```
 
+Sample run:
+```
+takeshi@5968838586c4:~/.../functional$ ./runtests 
+... ABRIDGED ...
+Success. All tests passed
+
+Successful tests:
+  - audio_stream.test_esl_socket.js: duration=6.09 seconds
+  - audio_stream.test_mod_lua.js: duration=2.03 seconds
+  - dtmf.js: duration=1.75 seconds
+  - speech_recog.js: duration=3.16 seconds
+
+Everything OK
+
+takeshi@5968838586c4:~/.../functional$
+```
+
 ## Results
 
 The test audio_stream.test_esl_socket.js confirm mod_audio_stream is usable to send audio to websocket server and receive messages from it.
