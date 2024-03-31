@@ -15,8 +15,8 @@ func usage() {
   app := os.Args[0]
 
   fmt.Printf(`
-Usage: %s freeswitch_esl_address freeswitch_esl_password listen_address
-Ex:    %s 127.0.0.1:8081 ClueCon :9090
+Usage: %s freeswitch_esl_address freeswitch_esl_password listen_address web_socket_url
+Ex:    %s freeswitch:8021 ClueCon tester:9090 ws://tester:8080
 `, app, app)
 }
 
@@ -72,7 +72,7 @@ func waitOk(id string, conn *eventsocket.Connection, cmd string, ev *eventsocket
 }
 
 func main() {
-  if len(os.Args) != 4 {
+  if len(os.Args) != 5 {
     usage()
     os.Exit(1)
   }
@@ -80,6 +80,7 @@ func main() {
   freeswitch_esl_address := os.Args[1]
   freeswitch_esl_password := os.Args[2]
   listen_address := os.Args[3]
+  websocket_server_url := os.Args[4]
 
   id := "inbound_socket"
 
@@ -100,7 +101,7 @@ func main() {
 	connectionMap := NewConnectionMap()
 
 	go eventsocket.ListenAndServe(listen_address, func(new_conn *eventsocket.Connection) {
-		handler(new_conn, connectionMap)
+		handler(new_conn, connectionMap, websocket_server_url)
 	})
 
 	for {
@@ -129,7 +130,7 @@ func main() {
 	conn.Close()
 }
 
-func handler(conn *eventsocket.Connection, connectionMap *ConnectionMap) {
+func handler(conn *eventsocket.Connection, connectionMap *ConnectionMap, websocket_server_url string) {
   id := "outbound_socket_client:" + conn.RemoteAddr().String()
 	_log(id, "start")
 
@@ -168,7 +169,7 @@ func handler(conn *eventsocket.Connection, connectionMap *ConnectionMap) {
 	ev, err = sendExecuteAndWaitOk(id, conn, app_name, app_data, false)
   if err != nil { return }
 
-	cmd = "api uuid_audio_stream " + uuid + " start ws://tester:8080 mono 8k"
+	cmd = "api uuid_audio_stream " + uuid + " start " + websocket_server_url + " mono 8k"
 	ev, err = sendCmdAndWaitOk(id, conn, cmd)
   if err != nil { return }
   defer (func() {
