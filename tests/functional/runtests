@@ -1,0 +1,79 @@
+#!/bin/bash
+
+set -o nounset
+
+function usage() {
+    cat <<EOF
+Usage: $0 [-g]
+
+Details:
+      -g : run each test inside gdb
+EOF
+}
+
+use_gdb=0
+
+while getopts "gh" o; do
+    case "${o}" in
+        g)
+            use_gdb=1
+      ;;
+        h)
+            usage
+      exit 0
+      ;;
+  *)
+            usage
+      exit 1
+      ;;
+    esac
+done
+shift $((OPTIND-1))
+
+successful_tests=()
+
+function output_successful_tests() {
+    echo "Successful tests:"
+    for t in "${successful_tests[@]}"
+    do
+        echo "  - $t"
+    done
+}
+
+echo
+
+for i in *.js
+do
+    start_time=$(date +%s.%N)
+
+    if [[ $use_gdb -eq 0 ]]
+    then
+        node $i
+    else
+        gdb -ex "handle SIGSEGV stop" -ex "run" -ex "bt" -ex "quit" --args node $i
+    fi
+
+    if [[ $? -ne 0 ]]
+    then
+        echo "$i failed"
+        echo
+        output_successful_tests
+        echo
+        echo "$i failed"
+        exit 1
+    else
+        end_time=$(date +%s.%N)
+        duration=$(echo "$end_time - $start_time" | bc)
+        formatted_duration=$(printf "%.2f seconds" $duration)
+        successful_tests+=("$i: duration=$formatted_duration")
+    fi
+done
+
+echo
+
+echo "Success. All tests passed"
+echo
+output_successful_tests
+echo
+echo "Everything OK"
+echo

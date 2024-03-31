@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ivr/eventsocket"
+	"ivr_server/eventsocket"
 	"sync"
 )
 

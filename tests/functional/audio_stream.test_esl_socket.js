@@ -172,27 +172,43 @@ async function test() {
     },
   ], 2000)
 
-  z.store.conn.send(JSON.stringify({cmd: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|123'}))
-
-  sip.call.send_dtmf(oc.id, {digits: '321', mode: 1})
+  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|<speak><prosody rate="50ms">1234</prosody><break time="1000ms"/><prosody rate="50ms">1234</prosody><break time="1000ms"/><prosody rate="50ms">1234</prosody></speak>'}))
 
   await z.wait([
     {
       event: 'dtmf',
       call_id: oc.id,
-      digits: '123',
+      digits: '1234',
       mode: 1,
-      media_id: 0,
     },
+  ], 2000)
+
+  z.store.conn.send(JSON.stringify({msg: 'stop-audio-output'}))
+
+  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|abcd'}))
+
+  // if stop-audio-output is successful, we should not get remaining digits from first 'speak' and we should get the digits from the second 'speak'
+  await z.wait([
+    {
+      event: 'dtmf',
+      call_id: oc.id,
+      digits: 'abcd',
+      mode: 1,
+    },
+  ], 2000)
+
+  sip.call.send_dtmf(oc.id, {digits: '321', mode: 1})
+
+  await z.wait([
     {
       event: 'ws_conn_digits',
-      //digits: '*321', // we get '*' as garbage in the digits so we will not check for it yet. This is a bug in dtmf-detection-stream
+      //digits: '*3*21', // we get '*' as garbage in the digits so we will not check for it yet. This is a bug in dtmf-detection-stream. For now we will just assume things are OK beause we got some digits
     },
-  ], 5000)
+  ], 2000)
 
   const transfer_destination = '0355556666'
 
-  z.store.conn.send(JSON.stringify({cmd: 'execute-app', app_name: 'bridge', app_data: `sofia/external/${transfer_destination}@${t1.address}:${t1.port}`}))
+  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'bridge', app_data: `sofia/external/${transfer_destination}@${t1.address}:${t1.port}`}))
 
   await z.wait([
     {

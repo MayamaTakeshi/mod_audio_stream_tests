@@ -39,6 +39,14 @@ echo "Grant sudo privileges to the non-root user"
 echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 EOF
 
+RUN <<EOF
+echo "Installing bc (required for runtests)"
+apt-get update
+apt-get install -y bc
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
+
 USER $USER_NAME
 
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -60,7 +68,6 @@ RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.14.0
 
 RUN echo -e '\n. $HOME/.asdf/asdf.sh' >> ~/.bashrc \
 && echo -e '\n. $HOME/.asdf/completions/asdf.bash' >> ~/.bashrc 
-
 
 RUN <<EOF
 source ~/.asdf/asdf.sh

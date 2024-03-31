@@ -1,3 +1,5 @@
+// Adapted from https://github.com/fiorix/go-eventsocket (commit da5ddbe3d53c293960a6b2d8dd1fea220cfe0849)
+
 // Copyright 2013 Alexandre Fiori
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.

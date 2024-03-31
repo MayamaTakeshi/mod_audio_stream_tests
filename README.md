@@ -44,18 +44,23 @@ once inside it, start a special tmux session:
 ```
 tmuxinator start dev
 ```
-The above will create a tmux session with 3 windows:
+The above will create a tmux session with 4 windows:
+  - window opened in the tests/functional folder
+  - ivr_server (golang app that will process mod_audio_stream msgs and freeswitch outbound socket clients)
   - mrcp_server
   - sngrep with mrcp support (sngrep2)
-  - window opened in the tests/functional folder
 
-In the tests/functional folder you can execute a test script like this:
+In the tests/functional folder you can run test scripts this way:
 ```
-node speech_recog.js
+./runtests
+
 ```
 
 ## Results
 
-There are no results yet.
+The test audio_stream.test_esl_socket.js confirm mod_audio_stream is usable to send audio to websocket server and receive messages from it.
+The test simulates a websocket server that receives audio from freeswitch vima mod_audio_stream and:
+  - send command to speak a phrase
+  - send command to stop audio output
+  - send command to transfer the call
 
-Research is ongoing.

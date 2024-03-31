@@ -4,6 +4,10 @@ root: ~/
 windows:
   - tester:
     - cd ~/src/mod_audio_stream_tests/tests/functional
+  - ivr_server:
+    - cd ~/src/mod_audio_stream_tests/ivr_server
+    - go build
+    - ./ivr_server freeswitch:8021 ClueCon :9090
   - mrcp_server:
     - cd ~/src/mrcp_server
     - node index.js

@@ -8,9 +8,17 @@ import (
 
   "encoding/json"
 
-	//"github.com/fiorix/go-eventsocket/eventsocket"
-	"ivr/eventsocket"
+	"ivr_server/eventsocket"
 )
+
+func usage() {
+  app := os.Args[0]
+
+  fmt.Printf(`
+Usage: %s freeswitch_esl_address freeswitch_esl_password listen_address
+Ex:    %s 127.0.0.1:8081 ClueCon :9090
+`, app, app)
+}
 
 func parseJSON(jsonData string) (map[string]interface{}, error) {
     var data map[string]interface{}
@@ -64,9 +72,18 @@ func waitOk(id string, conn *eventsocket.Connection, cmd string, ev *eventsocket
 }
 
 func main() {
+  if len(os.Args) != 4 {
+    usage()
+    os.Exit(1)
+  }
+
+  freeswitch_esl_address := os.Args[1]
+  freeswitch_esl_password := os.Args[2]
+  listen_address := os.Args[3]
+
   id := "inbound_socket"
 
-	conn, err := eventsocket.Dial("freeswitch:8021", "ClueCon")
+	conn, err := eventsocket.Dial(freeswitch_esl_address, freeswitch_esl_password)
 
 	if err != nil {
 		_log(id, "Dial err=%v\n", err)
@@ -82,7 +99,7 @@ func main() {
 
 	connectionMap := NewConnectionMap()
 
-	go eventsocket.ListenAndServe(":9090", func(new_conn *eventsocket.Connection) {
+	go eventsocket.ListenAndServe(listen_address, func(new_conn *eventsocket.Connection) {
 		handler(new_conn, connectionMap)
 	})
 
@@ -92,7 +109,7 @@ func main() {
 			_log(id, "ReadEvent err=%v\n", err)
       os.Exit(1)
 		}
-		_log(id, "InboundChannel New event:")
+		_log(id, "new event:")
 		ev.PrettyPrint2()
 
 		uuid := ev.Get("Unique-Id")
@@ -134,7 +151,7 @@ func handler(conn *eventsocket.Connection, connectionMap *ConnectionMap) {
 	_log(id, "Adding uuid to connectionMap\n\n")
 	connectionMap.Add(uuid, conn)
 	defer (func() {
-		_log(id, "Removing uuid: %s from connectionMap\n\n")
+		_log(id, "Removing uuid from connectionMap\n\n")
 		connectionMap.Remove(uuid)
 	})()
 
@@ -176,22 +193,22 @@ func handler(conn *eventsocket.Connection, connectionMap *ConnectionMap) {
 			_log(id, "Terminating", err)
 			break
 		}
-		_log(id, "OutboundChannel New event:")
+		_log(id, "new event:")
 		ev.PrettyPrint2()
     if(ev.Get("Event-Name") == "CUSTOM" && ev.Get("Event-Subclass") == "mod_audio_stream::json") {
-      err = handle_mod_audio_stream_json_cmd(id, conn, ev)
+      err = handle_mod_audio_stream_json_msg(id, conn, ev)
       if err != nil { return }
     }
 	}
 }
 
-func handle_mod_audio_stream_json_cmd(id string, conn *eventsocket.Connection, ev *eventsocket.Event) (error) {
+func handle_mod_audio_stream_json_msg(id string, conn *eventsocket.Connection, ev *eventsocket.Event) (error) {
   data, err := parseJSON(ev.Body)
   if err != nil {
       _log(id, "Error parsing JSON: %v\n", err)
       return err
   }
-  switch(data["cmd"]) {
+  switch(data["msg"]) {
     case "execute-app":
       app_name, ok := data["app_name"].(string)
       if !ok {
@@ -209,7 +226,7 @@ func handle_mod_audio_stream_json_cmd(id string, conn *eventsocket.Connection, e
         // this is not an actual error. It is just to finish the ivr processing as the call was transfered
         return fmt.Errorf("EOF_DUE_TRANSFER")
       }
-    case "stop-speech-synth":
+    case "stop-audio-output":
       cmd := "api uuid_break " + id + " all"
       ev, err = sendCmdAndWaitOk(id, conn, cmd)
       if err != nil { return err }
