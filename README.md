@@ -59,8 +59,9 @@ In the tests/functional folder you can run test scripts this way:
 ## Results
 
 The test audio_stream.test_esl_socket.js confirm mod_audio_stream is usable to send audio to websocket server and receive messages from it.
-The test simulates a websocket server that receives audio from freeswitch vima mod_audio_stream and:
-  - send command to speak a phrase
-  - send command to stop audio output
-  - send command to transfer the call
+
+The test simulates a websocket server that receives audio from freeswitch via mod_audio_stream and:
+  - send command to speak a phrase: {msg: 'execute-app', app_name: 'speak', app_data: 'TTS_ENGINE|TTS_VOICE|TEXT'})
+  - send command to stop audio output: {msg: 'stop-audio-output'}
+  - send command to transfer the call: {msg: 'execute-app', app_name: 'bridge', app_data: 'TRANSFER_DESTINATION')
 
