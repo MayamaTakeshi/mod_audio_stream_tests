@@ -114,8 +114,10 @@ async function test() {
 
   console.log("t1", t1)
 
+  const calling_number = '0311112222'
+
   // make the call from t1 to freeswitch
-  const oc = sip.call.create(t1.id, {from_uri: 'sip:0311112222@test.com', to_uri: `sip:test_esl_socket@freeswitch`})
+  const oc = sip.call.create(t1.id, {from_uri: `sip:${calling_number}@test.com`, to_uri: `sip:test_esl_socket@freeswitch`})
 
   await z.wait([
     {
@@ -188,19 +190,52 @@ async function test() {
     },
   ], 5000)
 
-  z.store.conn.send(JSON.stringify({cmd: 'execute-app', app_name: 'bridge', app_data: `sofia/external/0355556666@${t1.address}:${t1.port}`}))
+  const transfer_destination = '0355556666'
+
+  z.store.conn.send(JSON.stringify({cmd: 'execute-app', app_name: 'bridge', app_data: `sofia/external/${transfer_destination}@${t1.address}:${t1.port}`}))
 
   await z.wait([
     {
-    event: 'ws_close',
+      event: 'ws_close',
     },
     {
-      event: 'call_ended',
-      call_id: oc.id,
+      event: 'incoming_call',
+      transport_id: t1.id,
+      call_id: m.collect('ic_id'),
+      msg: sip_msg({
+        $rU: transfer_destination,
+        $fU: calling_number,
+      }),
     },
   ], 1000)
 
-  await z.sleep(1000)
+  sip.call.respond(z.store.ic_id, {code: 200, reason: 'OK'})
+
+  await z.wait([
+    {
+      event: 'media_update',
+      call_id: z.store.ic_id,
+      status: 'ok',
+    },
+  ], 1000)
+
+  sip.call.send_dtmf(oc.id, {digits: '1234', mode: 1})
+  sip.call.send_dtmf(z.store.ic_id, {digits: '4321', mode: 1})
+
+  await z.wait([
+    {
+      event: 'dtmf',
+      call_id: oc.id,
+      digits: '4321',
+      mode: 1,
+    },
+    {
+      event: 'dtmf',
+      call_id: z.store_icid,
+      digits: '1234',
+      mode: 1,
+    },
+  ], 2000)
 
   // now we terminate the call from t1 side
   sip.call.terminate(oc.id)
@@ -219,6 +254,10 @@ async function test() {
     {
       event: 'call_ended',
       call_id: oc.id,
+    },
+    {
+      event: 'call_ended',
+      call_id: z.store.ic_id,
     },
   ], 1000)
 

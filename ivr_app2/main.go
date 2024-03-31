@@ -154,6 +154,14 @@ func handler(conn *eventsocket.Connection, connectionMap *ConnectionMap) {
 	cmd = "api uuid_audio_stream " + uuid + " start ws://tester:8080 mono 8k"
 	ev, err = sendCmdAndWaitOk(id, conn, cmd)
   if err != nil { return }
+  defer (func() {
+		_log(id, "Stopping uuid_audio_stream\n\n")
+    cmd := "api uuid_audio_stream " + uuid + " stop"
+    _, err := sendCmdAndWaitOk(id, conn, cmd)
+    if err != nil {
+		  _log(id, "uuid_audio_stream stop err=%v\n\n", err)
+    }
+  })()
 
   /*
 	app_name = "playback"

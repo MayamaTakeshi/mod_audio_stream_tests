@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "dtmf-detection-stream": "^1.2.2",
-    "sip-lab": "^1.24.0",
+    "sip-lab": "^1.27.0",
     "ws": "^8.16.0"
   }
 }
