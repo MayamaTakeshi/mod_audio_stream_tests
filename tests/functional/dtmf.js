@@ -15,6 +15,11 @@ async function test() {
   sip.set_codecs("pcmu/8000/1:128")
   sip.dtmf_aggregation_on(500)
 
+  fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', `
+local uuid = event:getHeader("Unique-ID")
+freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
+`)
+
   // here we start sip-lab
   console.log(sip.start((data) => { console.log(data)} ))
 

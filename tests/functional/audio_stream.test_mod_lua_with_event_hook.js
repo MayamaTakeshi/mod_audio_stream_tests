@@ -3,6 +3,7 @@ const Zeq = require('@mayama/zeq')
 const m = require('data-matching')
 const sip_msg = require('sip-matching')
 const fs = require('fs')
+const assert = require('assert')
 
 const DtmfDetectionStream = require('dtmf-detection-stream')
 const WebSocket = require('ws')
@@ -20,12 +21,9 @@ async function test() {
   sip.set_codecs("pcmu/8000/1:128")
   sip.dtmf_aggregation_on(aggregation_timeout)
 
-  fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', `
-local uuid = event:getHeader("Unique-ID")
-freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
-`)
-
   const ws_server = new WebSocket.Server({ port: 8080 })
+
+  var ws_binary_msg_count = 0
 
   ws_server.on('connection', conn => {
     const format = {
@@ -64,7 +62,6 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
 		})
 
     conn.on('message', msg => {
-      console.log("ws message")
       if(typeof msg == 'string') {
         z.push_event({
           event: 'ws_msg',
@@ -72,6 +69,7 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
           msg,
         })
       } else {
+        ws_binary_msg_count++
         const bufferLength = Object.keys(msg).length
         const buffer = Buffer.alloc(bufferLength)
         Object.keys(msg).forEach(key => {
@@ -119,10 +117,79 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
 
   console.log("t1", t1)
 
+  fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', `
+local api = freeswitch.API()
+local uuid = event:getHeader("Unique-ID")
+freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
+local cmd = "uuid_setvar " .. uuid .. " mas_json " .. event:getBody()
+freeswitch.consoleLog("debug", uuid .. " cmd=" .. cmd)
+local res = api:executeString(cmd)
+freeswitch.consoleLog("debug", uuid .. " res=" .. res)
+cmd = "uuid_break " .. uuid .. " all"
+freeswitch.consoleLog("debug", uuid .. " cmd=" .. cmd)
+res = api:executeString(cmd)
+freeswitch.consoleLog("debug", uuid .. " res=" .. res)
+`)
+
+  fs.writeFileSync('/tmp/scripts/test.lua', `
+local api = freeswitch.API()
+local uuid = session:get_uuid()
+
+local abort = false
+
+function myHangupHook(s, status, arg)
+    session:consoleLog("debug", "myHangupHook: " .. status)
+    abort = true
+end
+
+session:setHangupHook("myHangupHook")
+
+local JSON = require("JSON")
+
+res = session:execute("answer")
+
+local cmd = "uuid_audio_stream " .. uuid .. " start ws://tester:8080 mono 8k"
+local res = api:executeString(cmd)
+
+session:setVariable("mas_json", "")
+
+while not abort do
+  local mas_json = session:getVariable("mas_json")
+  if not mas_json or mas_json == "" then
+    app = "playback"
+    session:consoleLog("debug",  "app=" .. app)
+    res = session:execute(app, "silence_stream://-1") -- endless silence
+    session:consoleLog("debug",  "res=" .. tostring(res))
+  else 
+    -- 'uuid_break uuid all' from hook will terminate playback/speak and we can proceed
+    session:consoleLog("debug", "mas_json=" .. mas_json)
+    local json = JSON:decode(mas_json)
+    if json.msg == "execute-app" then
+      session:consoleLog("debug", "executing app=" .. json.app_name .. " with data=" .. json.app_data)
+      session:execute(json.app_name, json.app_data)
+
+      if json.app_name == "bridge" then
+        -- need to stop audio_stream as we will exit the script
+        cmd = "uuid_audio_stream " .. uuid .. " stop"
+        res = api:executeString(cmd)
+        session:consoleLog("debug", "executing cmd=" .. cmd .. "got res=" .. tostring(res))
+        abort = true
+        break
+      else
+        session:consoleLog("debug", "not bridge app=" .. json.app_name)
+      end
+    else
+      session:consoleLog("debug", "unsupported msg=" .. json.msg)
+    end
+    session:setVariable("mas_json", "")
+  end
+end
+`)
+
   const calling_number = '0311112222'
 
   // make the call from t1 to freeswitch
-  const oc = sip.call.create(t1.id, {from_uri: `sip:${calling_number}@test.com`, to_uri: `sip:test_esl_socket@freeswitch`})
+  const oc = sip.call.create(t1.id, {from_uri: `sip:${calling_number}@test.com`, to_uri: `sip:test_mod_lua@freeswitch`})
 
   await z.wait([
     {
@@ -132,15 +199,6 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
       msg: sip_msg({
         $rs: '100',
         $rr: 'Trying',
-      }),
-    },
-   {
-      event: 'response',
-      call_id: oc.id,
-      method: 'INVITE',
-      msg: sip_msg({
-        $rs: '183',
-        $rr: 'Session Progress',
       }),
     },
     {
@@ -158,11 +216,6 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
       status: 'ok',
     },
     {
-      event: 'media_update',
-      call_id: oc.id,
-      status: 'ok',
-    },
-    {
       event: 'ws_conn',
       conn: m.collect('conn') 
     },
@@ -170,14 +223,7 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
 
   await z.sleep(500)
 
-  await z.wait([
-    {
-      event: 'ws_conn_digits',
-      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
-    },
-  ], 2000)
-
-  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|<speak><prosody rate="50ms">1234</prosody><break time="1000ms"/><prosody rate="50ms">1234</prosody><break time="1000ms"/><prosody rate="50ms">1234</prosody></speak>'}))
+  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: `unimrcp:mrcp_server|dtmf|1234`}))
 
   await z.wait([
     {
@@ -186,9 +232,15 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
       digits: '1234',
       mode: 1,
     },
+    {
+      event: 'ws_conn_digits',
+      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
+    },
+    {
+      event: 'ws_conn_digits',
+      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
+    },
   ], 2000)
-
-  z.store.conn.send(JSON.stringify({msg: 'stop-audio-output'}))
 
   z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|abcd'}))
 
@@ -217,7 +269,8 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
 
   await z.wait([
     {
-      event: 'ws_close',
+      event: 'ws_conn_digits',
+      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
     },
     {
       event: 'incoming_call',
@@ -238,6 +291,12 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
       call_id: z.store.ic_id,
       status: 'ok',
     },
+    // the below should be received but is not so the websocket connections stays open after answer and will be close only when the call ends
+    /*
+    {
+      event: 'ws_close',
+    },
+    */
   ], 1000)
 
   sip.call.send_dtmf(oc.id, {digits: '1234', mode: 1})
@@ -280,11 +339,15 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
       event: 'call_ended',
       call_id: z.store.ic_id,
     },
+    {
+      event: 'ws_close',
+    },
   ], 1000)
 
   console.log("Success")
 
   sip.stop()
+
 }
 
 

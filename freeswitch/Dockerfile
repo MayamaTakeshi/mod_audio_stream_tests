@@ -17,6 +17,16 @@ apt-get clean
 rm -rf /var/lib/apt/lists/*
 EOF
 
+run <<EOF
+echo "Installing luarocks and json"
+cd /usr/local/src/
+wget https://luarocks.org/releases/luarocks-3.11.0.tar.gz
+tar zxpf luarocks-3.11.0.tar.gz
+cd luarocks-3.11.0
+./configure && make && make install
+luarocks install json-lua 0.1-4 
+EOF
+
 ARG USER_NAME
 ARG USER_UID
 ARG USER_GID

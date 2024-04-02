@@ -117,6 +117,11 @@ async function test() {
 
   console.log("t1", t1)
 
+  fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', `
+local uuid = event:getHeader("Unique-ID")
+freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
+`)
+
   fs.writeFileSync('/tmp/scripts/test.lua', `
 api = freeswitch.API()
 local uuid = session:get_uuid()

@@ -202,6 +202,12 @@
         </profile>
       </profiles>
     </configuration>
+
+    <configuration name="lua.conf" description="LUA Configuration">
+      <settings>
+        <hook event="CUSTOM" subclass="mod_audio_stream::json" script="/tmp/scripts/handle_mod_audio_stream_json.lua"/>
+      </settings>
+    </configuration>
   </section>
 
   <section name="dialplan" description="Regex/XML Dialplan">
