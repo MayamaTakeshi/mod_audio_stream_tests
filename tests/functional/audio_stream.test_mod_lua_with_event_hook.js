@@ -21,6 +21,10 @@ async function test() {
   sip.set_codecs("pcmu/8000/1:128")
   sip.dtmf_aggregation_on(aggregation_timeout)
 
+  z.add_event_filter({
+    event: 'ws_conn_digits', // we are getting garbage so we will not check this yet.
+  })
+
   const ws_server = new WebSocket.Server({ port: 8080 })
 
   var ws_binary_msg_count = 0
@@ -165,19 +169,16 @@ while not abort do
     session:consoleLog("debug", "mas_json=" .. mas_json)
     local json = JSON:decode(mas_json)
     if json.msg == "execute-app" then
-      session:consoleLog("debug", "executing app=" .. json.app_name .. " with data=" .. json.app_data)
-      session:execute(json.app_name, json.app_data)
-
       if json.app_name == "bridge" then
         -- need to stop audio_stream as we will exit the script
         cmd = "uuid_audio_stream " .. uuid .. " stop"
         res = api:executeString(cmd)
         session:consoleLog("debug", "executing cmd=" .. cmd .. "got res=" .. tostring(res))
         abort = true
-        break
-      else
-        session:consoleLog("debug", "not bridge app=" .. json.app_name)
       end
+
+      session:consoleLog("debug", "executing app=" .. json.app_name .. " with data=" .. json.app_data)
+      session:execute(json.app_name, json.app_data)
     else
       session:consoleLog("debug", "unsupported msg=" .. json.msg)
     end
@@ -232,14 +233,6 @@ end
       digits: '1234',
       mode: 1,
     },
-    {
-      event: 'ws_conn_digits',
-      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
-    },
-    {
-      event: 'ws_conn_digits',
-      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
-    },
   ], 2000)
 
   z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|abcd'}))
@@ -254,24 +247,11 @@ end
     },
   ], 2000)
 
-  sip.call.send_dtmf(oc.id, {digits: '321', mode: 1})
-
-  await z.wait([
-    {
-      event: 'ws_conn_digits',
-      //digits: '*3*21', // we get '*' as garbage in the digits so we will not check for it yet. This is a bug in dtmf-detection-stream. For now we will just assume things are OK beause we got some digits
-    },
-  ], 2000)
-
   const transfer_destination = '0355556666'
 
   z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'bridge', app_data: `sofia/external/${transfer_destination}@${t1.address}:${t1.port}`}))
 
   await z.wait([
-    {
-      event: 'ws_conn_digits',
-      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
-    },
     {
       event: 'incoming_call',
       transport_id: t1.id,
@@ -281,6 +261,9 @@ end
         $fU: calling_number,
       }),
     },
+    {
+      event: 'ws_close',
+    }
   ], 1000)
 
   sip.call.respond(z.store.ic_id, {code: 200, reason: 'OK'})
@@ -291,12 +274,6 @@ end
       call_id: z.store.ic_id,
       status: 'ok',
     },
-    // the below should be received but is not so the websocket connections stays open after answer and will be close only when the call ends
-    /*
-    {
-      event: 'ws_close',
-    },
-    */
   ], 1000)
 
   sip.call.send_dtmf(oc.id, {digits: '1234', mode: 1})
@@ -338,9 +315,6 @@ end
     {
       event: 'call_ended',
       call_id: z.store.ic_id,
-    },
-    {
-      event: 'ws_close',
     },
   ], 1000)
 
