@@ -1,3 +1,7 @@
+// This script shows that we cannot use
+// freeswitch.EventConsumer("CUSTOM", "mod_audio_stream::json")
+// on a channel script as it will get all such events from all channels.
+
 const sip = require ('sip-lab')
 const Zeq = require('@mayama/zeq')
 const m = require('data-matching')
@@ -100,53 +104,30 @@ async function test() {
 
   console.log("t1", t1)
 
-  fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', `
-local api = freeswitch.API()
-local uuid = event:getHeader("Unique-ID")
-freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
-local cmd = "uuid_setvar " .. uuid .. " mas_json " .. event:getBody()
-freeswitch.consoleLog("debug", uuid .. " cmd=" .. cmd)
-local res = api:executeString(cmd)
-freeswitch.consoleLog("debug", uuid .. " res=" .. res)
-cmd = "uuid_break " .. uuid .. " all"
-freeswitch.consoleLog("debug", uuid .. " cmd=" .. cmd)
-res = api:executeString(cmd)
-freeswitch.consoleLog("debug", uuid .. " res=" .. res)
-`)
+  fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', '')
 
   fs.writeFileSync('/tmp/scripts/test.lua', `
-local api = freeswitch.API()
+local JSON = require('JSON')
+
 local uuid = session:get_uuid()
+local wss_url = "ws://tester:8080"
+local mix_type = "mono" -- or "mixed" or "stereo"
+local sampling_rate = "8k" -- or "16k"
 
-local abort = false
+session:answer();
+session:setInputCallback("onInput");
 
-function myHangupHook(s, status, arg)
-    session:consoleLog("debug", "myHangupHook: " .. status)
-    abort = true
-end
+api = freeswitch.API()
+con = freeswitch.EventConsumer("CUSTOM", "mod_audio_stream::json");
 
-session:setHangupHook("myHangupHook")
+api:execute("uuid_audio_stream", string.format("%s start %s %s %s", uuid, wss_url, mix_type, sampling_rate))
 
-local JSON = require("JSON")
-
-res = session:execute("answer")
-
-local cmd = "uuid_audio_stream " .. uuid .. " start ws://tester:8080 mono 8k"
-local res = api:executeString(cmd)
-
-session:setVariable("mas_json", "")
-
-while not abort do
-  local mas_json = session:getVariable("mas_json")
-  if not mas_json or mas_json == "" then
-    app = "playback"
-    session:consoleLog("debug",  "app=" .. app)
-    res = session:execute(app, "silence_stream://-1") -- endless silence
-    session:consoleLog("debug",  "res=" .. tostring(res))
-  else 
-    -- 'uuid_break uuid all' from hook will terminate playback/speak and we can proceed
-    session:consoleLog("debug", "mas_json=" .. mas_json)
-    local json = JSON:decode(mas_json)
+while (session:ready() == true) do
+	for e in (function() return con:pop() end) do
+		session:consoleLog("debug", "______________________________BODY_________________________");
+		local body = e:getBody()
+    session:consoleLog("debug", "body=" .. body)
+    local json = JSON:decode(body)
     if json.msg == "execute-app" then
       if json.app_name == "bridge" then
         -- need to stop audio_stream as we will exit the script
@@ -161,20 +142,20 @@ while not abort do
     else
       session:consoleLog("debug", "unsupported msg=" .. json.msg)
     end
-    session:setVariable("mas_json", "")
-  end
+	end
 end
 `)
 
   const calling_number = '0311112222'
 
-  // make the call from t1 to freeswitch
-  const oc = sip.call.create(t1.id, {from_uri: `sip:${calling_number}@test.com`, to_uri: `sip:test_mod_lua@freeswitch`})
+  // make two calls from t1 to freeswitch
+  const oc1 = sip.call.create(t1.id, {from_uri: `sip:${calling_number}@test.com`, to_uri: `sip:test_mod_lua@freeswitch`})
+  const oc2 = sip.call.create(t1.id, {from_uri: `sip:${calling_number}@test.com`, to_uri: `sip:test_mod_lua@freeswitch`})
 
   await z.wait([
     {
       event: 'response',
-      call_id: oc.id,
+      call_id: oc1.id,
       method: 'INVITE',
       msg: sip_msg({
         $rs: '100',
@@ -183,7 +164,7 @@ end
     },
     {
       event: 'response',
-      call_id: oc.id,
+      call_id: oc1.id,
       method: 'INVITE',
       msg: sip_msg({
         $rs: '200',
@@ -192,25 +173,65 @@ end
     },
     {
       event: 'media_update',
-      call_id: oc.id,
+      call_id: oc1.id,
       status: 'ok',
     },
     {
       event: 'ws_conn',
-      conn: m.collect('conn') 
+      conn: m.collect('conn1') 
+    },
+
+    {
+      event: 'response',
+      call_id: oc2.id,
+      method: 'INVITE',
+      msg: sip_msg({
+        $rs: '100',
+        $rr: 'Trying',
+      }),
+    },
+    {
+      event: 'response',
+      call_id: oc2.id,
+      method: 'INVITE',
+      msg: sip_msg({
+        $rs: '200',
+        $rr: 'OK',
+      }),
+    },
+    {
+      event: 'media_update',
+      call_id: oc2.id,
+      status: 'ok',
+    },
+    {
+      event: 'ws_conn',
+      conn: m.collect('conn2') 
     },
   ], 1000)
 
   await z.sleep(500)
 
-  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: `unimrcp:mrcp_server|dtmf|1234`}))
+  // Here we send execute-app speak only for one of the websocket connections
+  z.store.conn1.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: `unimrcp:mrcp_server|dtmf|1111`}))
 
+  // whowever, both calls will get the digits 1111
   await z.wait([
     {
       event: 'dtmf',
-      call_id: oc.id,
-      digits: '1234',
+      call_id: oc1.id,
+      digits: '1111',
       mode: 1,
+    },
+    {
+      event: 'dtmf',
+      call_id: oc2.id,
+      digits: '1111',
+      mode: 1,
+    },
+    {
+      event: 'ws_conn_digits',
+      digits: '*', // bug in dtmf-detection-stream
     },
     {
       event: 'ws_conn_digits',
@@ -218,86 +239,14 @@ end
     },
   ], 2000)
 
-  sip.call.send_dtmf(oc.id, {digits: '4567', mode: 1})
-
-  await z.wait([
-    {
-      event: 'ws_conn_digits',
-      digits: '4567',
-    },
-  ], 2000)
-
-  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|abcd'}))
-
-  // if stop-audio-output is successful, we should not get remaining digits from first 'speak' and we should get the digits from the second 'speak'
-  await z.wait([
-    {
-      event: 'dtmf',
-      call_id: oc.id,
-      digits: 'abcd',
-      mode: 1,
-    },
-    {
-      event: 'ws_conn_digits',
-      digits: m.any_of(['1*', '*1', '*', '1']), // bug in dtmf-detection-stream
-    },
-  ], 2000)
-
-  const transfer_destination = '0355556666'
-
-  z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'bridge', app_data: `sofia/external/${transfer_destination}@${t1.address}:${t1.port}`}))
-
-  await z.wait([
-    {
-      event: 'incoming_call',
-      transport_id: t1.id,
-      call_id: m.collect('ic_id'),
-      msg: sip_msg({
-        $rU: transfer_destination,
-        $fU: calling_number,
-      }),
-    },
-    {
-      event: 'ws_close',
-    }
-  ], 1000)
-
-  sip.call.respond(z.store.ic_id, {code: 200, reason: 'OK'})
-
-  await z.wait([
-    {
-      event: 'media_update',
-      call_id: z.store.ic_id,
-      status: 'ok',
-    },
-  ], 1000)
-
-  sip.call.send_dtmf(oc.id, {digits: '1234', mode: 1})
-  sip.call.send_dtmf(z.store.ic_id, {digits: '4321', mode: 1})
-
-  await z.wait([
-    {
-      event: 'dtmf',
-      call_id: oc.id,
-      digits: '4321',
-      mode: 1,
-    },
-    {
-      event: 'dtmf',
-      call_id: z.store_icid,
-      digits: '1234',
-      mode: 1,
-    },
-  ], 2000)
-
-  // now we terminate the call from t1 side
-  sip.call.terminate(oc.id)
+  sip.call.terminate(oc1.id)
+  sip.call.terminate(oc2.id)
 
   // and wait for termination events
   await z.wait([
     {
       event: 'response',
-      call_id: oc.id,
+      call_id: oc1.id,
       method: 'BYE',
       msg: sip_msg({
         $rs: '200',
@@ -306,11 +255,27 @@ end
     },
     {
       event: 'call_ended',
-      call_id: oc.id,
+      call_id: oc1.id,
+    },
+
+    {
+      event: 'response',
+      call_id: oc2.id,
+      method: 'BYE',
+      msg: sip_msg({
+        $rs: '200',
+        $rr: 'OK',
+      }),
     },
     {
       event: 'call_ended',
-      call_id: z.store.ic_id,
+      call_id: oc2.id,
+    },
+    {
+      event: 'ws_close',
+    },
+    {
+      event: 'ws_close',
     },
   ], 1000)
 
