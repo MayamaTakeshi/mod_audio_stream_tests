@@ -55,8 +55,15 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
       }
     }, 100)
 
+    const dtmf_opts = {
+      sampleRate: format.sampleRate,
+      peakFilterSensitivity: 0.5,
+      repeatMin: 1,
+      downsampleRate: 1,
+      threshold: 0.9,
+    }
 
-    const dds = new DtmfDetectionStream(format)
+    const dds = new DtmfDetectionStream(format, null, dtmf_opts)
     dds.on('digit', digit => {
       digits += digit
       last_digit_time = Date.now()
@@ -185,7 +192,7 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
   await z.wait([
     {
       event: 'ws_conn_digits',
-      //digits: '*1', // we are spuriously detecting '*' and '1'. This is a bug in dtmf-detection-stream
+      digits: '*', // we are spuriously detecting '*'. This is a bug in dtmf-detection-stream
     },
   ], 2000)
 
@@ -219,7 +226,7 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
   await z.wait([
     {
       event: 'ws_conn_digits',
-      //digits: '*3*21', // we get '*' as garbage in the digits so we will not check for it yet. This is a bug in dtmf-detection-stream. For now we will just assume things are OK beause we got some digits
+      digits: '321',
     },
   ], 2000)
 

@@ -53,8 +53,15 @@ async function test() {
       }
     }, 100)
 
+    const dtmf_opts = {
+      sampleRate: format.sampleRate,
+      peakFilterSensitivity: 0.5,
+      repeatMin: 1,
+      downsampleRate: 1,
+      threshold: 0.9,
+    }
 
-    const dds = new DtmfDetectionStream(format)
+    const dds = new DtmfDetectionStream(format, null, dtmf_opts)
     dds.on('digit', digit => {
       digits += digit
       last_digit_time = Date.now()
@@ -203,11 +210,11 @@ session:sleep(15000)`)
   await z.wait([
     {
       event: 'ws_conn_digits',
-      //digits: '*1', // we are spuriously detecting '*' and '1'. This might be a bug in dtmf-detection-stream
+      digits: '123',
     },
   ], 2000)
 
-  //z.store.conn.send(JSON.stringify({type: 'start_of_input'})) // this doesn't reach the lua script as it cannot readily get this event (it might be doable but I don't know how yet)
+  z.store.conn.send(JSON.stringify({type: 'start_of_input'})) // this doesn't reach the lua script as it cannot readily get this event (it might be doable but I don't know how yet)
 
   // now we terminate the call from t1 side
   sip.call.terminate(oc.id)

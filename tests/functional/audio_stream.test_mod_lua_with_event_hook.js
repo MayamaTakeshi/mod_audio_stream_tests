@@ -26,10 +26,6 @@ async function test() {
 
   await tu.hangup_all_calls()
 
-  z.add_event_filter({
-    event: 'ws_conn_digits', // we are getting garbage so we will not check this yet.
-  })
-
   const ws_server = new WebSocket.Server({ port: 8080 })
 
   var ws_binary_msg_count = 0
@@ -58,8 +54,15 @@ async function test() {
       }
     }, 100)
 
+    const dtmf_opts = {
+      sampleRate: format.sampleRate,
+      peakFilterSensitivity: 0.5,
+      repeatMin: 1,
+      downsampleRate: 1,
+      threshold: 0.9,
+    }
 
-    const dds = new DtmfDetectionStream(format)
+    const dds = new DtmfDetectionStream(format, null, dtmf_opts)
     dds.on('digit', digit => {
       digits += digit
       last_digit_time = Date.now()
@@ -246,6 +249,19 @@ end
       digits: '1234',
       mode: 1,
     },
+    {
+      event: 'ws_conn_digits',
+      digits: '*', // bug in dtmf-detection-stream
+    },
+  ], 2000)
+
+  sip.call.send_dtmf(oc.id, {digits: '4567', mode: 1})
+
+  await z.wait([
+    {
+      event: 'ws_conn_digits',
+      digits: '4567',
+    },
   ], 2000)
 
   z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|abcd'}))
@@ -257,6 +273,10 @@ end
       call_id: oc.id,
       digits: 'abcd',
       mode: 1,
+    },
+    {
+      event: 'ws_conn_digits',
+      digits: m.any_of(['1*', '*1', '*', '1']), // bug in dtmf-detection-stream
     },
   ], 2000)
 

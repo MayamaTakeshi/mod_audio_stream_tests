@@ -17,8 +17,8 @@ const hangup_all_calls = async () => {
   };
 
   await fs_command("hupall");
-};
+}
 
 module.exports = {
   hangup_all_calls,
-};
+}
