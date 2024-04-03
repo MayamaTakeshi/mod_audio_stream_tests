@@ -4,6 +4,8 @@ const m = require('data-matching')
 const sip_msg = require('sip-matching')
 const fs = require('fs')
 
+const tu = require('./lib/test_utils')
+
 const DtmfDetectionStream = require('dtmf-detection-stream')
 const WebSocket = require('ws')
 
@@ -19,6 +21,8 @@ async function test() {
 
   sip.set_codecs("pcmu/8000/1:128")
   sip.dtmf_aggregation_on(aggregation_timeout)
+
+  await tu.hangup_all_calls()
 
   fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', `
 local uuid = event:getHeader("Unique-ID")
@@ -62,6 +66,14 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
 			event: 'ws_conn',
 			conn,
 		})
+       
+    if (fs.existsSync("a.raw")) {    
+        fs.unlinkSync("a.raw")
+    }
+
+    if (fs.existsSync("b.raw")) {    
+        fs.unlinkSync("b.raw")
+    }
 
     conn.on('message', msg => {
       console.log("ws message")

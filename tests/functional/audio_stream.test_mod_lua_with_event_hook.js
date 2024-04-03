@@ -5,8 +5,11 @@ const sip_msg = require('sip-matching')
 const fs = require('fs')
 const assert = require('assert')
 
+const tu = require('./lib/test_utils')
+
 const DtmfDetectionStream = require('dtmf-detection-stream')
 const WebSocket = require('ws')
+
 
 var z = new Zeq()
 
@@ -20,6 +23,8 @@ async function test() {
 
   sip.set_codecs("pcmu/8000/1:128")
   sip.dtmf_aggregation_on(aggregation_timeout)
+
+  await tu.hangup_all_calls()
 
   z.add_event_filter({
     event: 'ws_conn_digits', // we are getting garbage so we will not check this yet.
@@ -64,6 +69,14 @@ async function test() {
 			event: 'ws_conn',
 			conn,
 		})
+
+    if (fs.existsSync("a.raw")) {
+        fs.unlinkSync("a.raw")
+    }
+
+    if (fs.existsSync("b.raw")) {
+        fs.unlinkSync("b.raw")
+    }
 
     conn.on('message', msg => {
       if(typeof msg == 'string') {

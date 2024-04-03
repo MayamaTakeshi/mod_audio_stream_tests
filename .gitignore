@@ -1,3 +1,6 @@
 .env
 node_modules
 tests/node_modules
+scripts/
+scripts/
+ivr_server/ivr_server

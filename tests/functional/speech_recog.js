@@ -4,6 +4,8 @@ const m = require('data-matching')
 const sip_msg = require('sip-matching')
 const fs = require('fs')
 
+const tu = require('./lib/test_utils')
+
 var z = new Zeq()
 
 async function test() {
@@ -14,6 +16,8 @@ async function test() {
 
   sip.set_codecs("speex/16000/1:128")
   sip.dtmf_aggregation_on(500)
+
+  await tu.hangup_all_calls()
 
   fs.writeFileSync('/tmp/scripts/handle_mod_audio_stream_json.lua', `
 local uuid = event:getHeader("Unique-ID")
