@@ -58,15 +58,7 @@ async function test() {
       }
     }, 100)
 
-    const dtmf_opts = {
-      sampleRate: format.sampleRate,
-      peakFilterSensitivity: 0.5,
-      repeatMin: 1,
-      downsampleRate: 1,
-      threshold: 0.9,
-    }
-
-    const dds = new DtmfDetectionStream(format, null, dtmf_opts)
+    const dds = new DtmfDetectionStream(format)
     dds.on('digit', digit => {
       digits += digit
       last_digit_time = Date.now()
@@ -228,14 +220,6 @@ end
       call_id: oc2.id,
       digits: '1111',
       mode: 1,
-    },
-    {
-      event: 'ws_conn_digits',
-      digits: '*', // bug in dtmf-detection-stream
-    },
-    {
-      event: 'ws_conn_digits',
-      digits: '*', // bug in dtmf-detection-stream
     },
   ], 2000)
 

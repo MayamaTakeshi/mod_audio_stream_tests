@@ -53,15 +53,7 @@ async function test() {
       }
     }, 100)
 
-    const dtmf_opts = {
-      sampleRate: format.sampleRate,
-      peakFilterSensitivity: 0.5,
-      repeatMin: 1,
-      downsampleRate: 1,
-      threshold: 0.9,
-    }
-
-    const dds = new DtmfDetectionStream(format, null, dtmf_opts)
+    const dds = new DtmfDetectionStream(format)
     dds.on('digit', digit => {
       digits += digit
       last_digit_time = Date.now()
@@ -205,12 +197,12 @@ session:sleep(15000)`)
     },
   ], 1000)
 
-  sip.call.send_dtmf(oc.id, {digits: '123', mode: 1})
+  sip.call.send_dtmf(oc.id, {digits: '1234', mode: 1})
 
   await z.wait([
     {
       event: 'ws_conn_digits',
-      digits: '123',
+      digits: '1234',
     },
   ], 2000)
 

@@ -55,15 +55,7 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
       }
     }, 100)
 
-    const dtmf_opts = {
-      sampleRate: format.sampleRate,
-      peakFilterSensitivity: 0.5,
-      repeatMin: 1,
-      downsampleRate: 1,
-      threshold: 0.9,
-    }
-
-    const dds = new DtmfDetectionStream(format, null, dtmf_opts)
+    const dds = new DtmfDetectionStream(format)
     dds.on('digit', digit => {
       digits += digit
       last_digit_time = Date.now()
@@ -188,13 +180,6 @@ freeswitch.consoleLog("debug", uuid .. " got json " .. event:getBody())
   ], 1000)
 
   await z.sleep(500)
-
-  await z.wait([
-    {
-      event: 'ws_conn_digits',
-      digits: '*', // we are spuriously detecting '*'. This is a bug in dtmf-detection-stream
-    },
-  ], 2000)
 
   z.store.conn.send(JSON.stringify({msg: 'execute-app', app_name: 'speak', app_data: 'unimrcp:mrcp_server|dtmf|<speak><prosody rate="50ms">1234</prosody><break time="1000ms"/><prosody rate="50ms">1234</prosody><break time="1000ms"/><prosody rate="50ms">1234</prosody></speak>'}))
 
